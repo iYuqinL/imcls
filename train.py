@@ -1,0 +1,78 @@
+# -*- coding:utf-8 -*-
+###
+# File: train.py
+# Created Date: Wednesday, September 11th 2019, 11:39:44 am
+# Author: yusnows
+# -----
+# Last Modified:
+# Modified By:
+# -----
+# Copyright (c) 2019 nju-visg
+#
+# All shall be well and all shall be well and all manner of things shall be well.
+# Nope...we're doomed!
+# -----
+# HISTORY:
+# Date      	By	Comments
+# ----------	---	----------------------------------------------------------
+###
+import os
+import argparse
+import numpy as np
+import torch
+import torchvision.transforms as transforms
+import PIL
+from efficientnet_pytorch import EfficientNet
+from csv_dataset import CsvDataset
+import classifi_model as cmodel
+import config
+import time
+
+if __name__ == "__main__":
+    conf = config.Config()
+    opt = conf.create_opt()
+    print(opt)
+    start_time = time.time()
+    gpus = [opt.gpu]
+    if len(gpus) == 0:
+        device = torch.device('cpu')
+    else:
+        if gpus[0] >= 0:
+            device = torch.device('cuda:%d' % gpus[0])
+        else:
+            device = torch.device('cpu')
+    if 'efficiennet' in opt.arch:
+        image_size = EfficientNet.get_image_size(opt.arch)
+    else:
+        print('not efficientnet image size')
+        image_size = opt.imageSize
+    normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
+                                     std=[0.229, 0.224, 0.225])
+    train_transforms = transforms.Compose(
+        [transforms.RandomResizedCrop(image_size, scale=(0.4, 1.0), interpolation=PIL.Image.BICUBIC),
+         transforms.RandomHorizontalFlip(),
+         transforms.ToTensor(),
+         normalize, ])
+    train_dataset = CsvDataset(opt.traincsv, opt.trainroot, transform=train_transforms, extension="")
+    train_loader = torch.utils.data.DataLoader(
+        train_dataset, batch_size=opt.batchSize, shuffle=True, num_workers=opt.workers, drop_last=True,
+        pin_memory=False)
+    classi_model = cmodel.ClassiModel(
+        arch=opt.arch, gpus=[opt.gpu], num_classes=opt.num_classes, from_pretrained=opt.from_pretrained)
+    if opt.model_url is not None:
+        classi_model.loadmodel(opt.model_url, ifload_fc=opt.load_fc)
+    if opt.eval is False:
+        classi_model.train_fold(train_loader, None, 100, opt)
+    else:
+        num_correct = 0
+        num_error = 0
+        for i, data in enumerate(train_loader, start=0):
+            images, labels = data
+            labels = labels.to(device)
+            outputs = classi_model.test(images)
+            pred_label = torch.argmax(outputs, 1)
+            num_correct += torch.sum(pred_label == labels, 0)
+        print('num_correct: ', num_correct.item())
+        print('accuracy of prediction on imgs: %f' % (num_correct.item()/len(train_dataset)))
+    end_time = time.time()
+    print("train/eval time use: %f" % (end_time - start_time))

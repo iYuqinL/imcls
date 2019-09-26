@@ -1,0 +1,5 @@
+__pycache__
+models
+results/
+.vscode/
+pretrained_model
