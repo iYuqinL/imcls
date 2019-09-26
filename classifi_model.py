@@ -48,6 +48,19 @@ class ClassiModel(object):
         else:
             print("multi labels classify, use BCEWithLogits for loss")
             self.criterion = nn.BCEWithLogitsLoss().to(self.device)
+        self.softmax_threshold = 0.3
+        self.sigmod_threshold = 0.5  # maybe sigmod is more reasonable
+
+    def get_multi_labels(self, outs, method='sigmod'):
+        if method == 'sigmod':
+            outs = torch.sigmoid(outs, dim=1)
+            threshold = self.sigmod_threshold
+        elif method == 'softmax':
+            outs = torch.softmax(outs, dim=1)
+            threshold = self.softmax_threshold
+        outs[outs < threshold] = 0
+        outs[outs >= threshold] = 1
+        return outs
 
     def train_fold(self, trainloader, validloader, fold, opt):
         start = time.time()
@@ -58,8 +71,10 @@ class ClassiModel(object):
         train_score_list, valid_score_list = [], []
         valid_acc, valid_score = 0, 0
         train_acc, train_score = 0, 0
+        train_acc_std = 0.801
         for lr in opt.lr_list:
             self._set_learning_rate(lr)
+            train_acc_std = train_acc_std + 0.02
             print('set lr to %.6f' % lr)
             # 每次调整学习率后，重新计算当前有多少个epoch准确率未上升
             patience = 0
@@ -95,7 +110,8 @@ class ClassiModel(object):
                 et = time.time()
                 print('train acc:', train_acc, 'valid acc:', valid_acc, '%ds' % int(et-st))
                 print('train score:', train_score, 'valid score:', valid_score, '%ds' % int(et-st))
-                if patience == opt.max_N or epoch >= opt.epoches:
+                print("patience is: %d, train_acc_std is: %f" % (patience, train_acc_std))
+                if ((patience >= opt.max_N) and (train_acc >= train_acc_std)) or (epoch >= opt.epoches):
                     break
         max_N = opt.max_N
         avg_valid_acc = sum(valid_acc_list[-max_N:]) / max_N
@@ -118,12 +134,17 @@ class ClassiModel(object):
             images, labels = data
             labels = labels.to(self.device)
             out = self.test(images)
-            pred_label = torch.argmax(out, 1)
-            num_correct += torch.sum(pred_label == labels, 0).item()
+            if self.multi_labels is False:
+                labels = labels.argmax(dim=1)
+                pred_label = torch.argmax(out, dim=1)
+            else:
+                pred_label = self.get_multi_labels(outs=out)
             N += labels.shape[0]
             for i in range(labels.shape[0]):
+                # if multi labels, labels[i] and pred_label is 1x(num_classes) tensor, else, they are a scalar
                 if labels[i] == pred_label[i]:
                     TP[labels[i]] += 1
+                    num_correct += 1
                 else:
                     FN[labels[i]] += 1
                     FP[pred_label[i]] += 1
