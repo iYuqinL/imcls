@@ -3,3 +3,6 @@ models
 results/
 .vscode/
 pretrained_model
+test*.csv
+test_results/
+
