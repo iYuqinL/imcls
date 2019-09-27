@@ -13,6 +13,7 @@ from .utils import (
     load_pretrained_weights,
 )
 
+
 class MBConvBlock(nn.Module):
     """
     Mobile Inverted Residual Bottleneck Block
@@ -178,7 +179,9 @@ class EfficientNet(nn.Module):
         x = self.extract_features(inputs)
 
         # Pooling and final linear layer
-        x = F.adaptive_avg_pool2d(x, 1).squeeze(-1).squeeze(-1)
+        x = F.adaptive_avg_pool2d(x, 1)
+        x = x.squeeze(len(x.shape)-1)
+        x = x.squeeze(len(x.shape)-1)
         if self._dropout:
             x = F.dropout(x, p=self._dropout, training=self.training)
         x = self._fc(x)
@@ -208,5 +211,5 @@ class EfficientNet(nn.Module):
         the first four models (efficientnet-b{i} for i in 0,1,2,3) at the moment. """
         num_models = 4 if also_need_pretrained_weights else 8
         valid_models = ['efficientnet_b'+str(i) for i in range(num_models)]
-        if model_name.replace('-','_') not in valid_models:
+        if model_name.replace('-', '_') not in valid_models:
             raise ValueError('model_name should be one of: ' + ', '.join(valid_models))
