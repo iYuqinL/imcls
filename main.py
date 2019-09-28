@@ -49,6 +49,7 @@ if __name__ == "__main__":
             train_csvs.append(os.path.join(opt.fold_out, "%d/trian_%d.csv" % (i, i)))
             valid_csvs.append(os.path.join(opt.fold_out, "%d/valid_%d.csv" % (i, i)))
     if 'efficiennet' in opt.arch:
+        print("efficientnet image size")
         image_size = EfficientNet.get_image_size(opt.arch)
     else:
         print('not efficientnet image size')

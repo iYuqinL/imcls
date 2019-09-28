@@ -60,15 +60,15 @@ class RandomCrop(object):
             is made.
     """
 
-    def __init__(self, scale=(0.1, 1)):
+    def __init__(self, scale=(0.1, 1.0)):
         self.scale = scale
         self.randmax = 1000000000
 
     def __call__(self, img):
         rand_low = self.scale[0] * self.randmax
         rand_high = self.scale[1] * self.randmax
-        scale = np.random.randint(rand_low, rand_high+1)/rand_high
-        h, w = img.size
+        scale = float(np.random.randint(rand_low, rand_high+1))/rand_high
+        w, h = img.size
         new_h, new_w = int(h*scale), int(w*scale)
         top = np.random.randint(0, h - new_h)
         left = np.random.randint(0, w - new_w)
@@ -132,4 +132,15 @@ class RandomToHSVToRGB(object):
 
 
 if __name__ == "__main__":
-    pass
+    im_file = "/home/yusnows/Documents/DataSets/competition/weatherRecog/original/test.jpg"
+    im_save = "/home/yusnows/Documents/DataSets/competition/weatherRecog/original/test-1.jpg"
+    img = Image.open(im_file)
+    if img.mode != 'RGB':
+        img = img.convert('RGB')
+    trans = RandomCrop(scale=(0.4, 1.0))
+    img = trans(img)
+    trans = ToHSVToRGB()
+    img = trans(img)
+    trans = ResizeFill(224)
+    img = trans(img)
+    img.save(im_save)
