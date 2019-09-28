@@ -114,7 +114,8 @@ def generate_k_fold_seq(csv_file, out_dir, k, shuffle=True):
             num_data_less_k.append(indices[i-class_base])
         class_data = file_info[indices[i - class_base]]
         dataset.append(class_data)
-    num_data_less_k = np.concatenate(num_data_less_k, axis=0)
+    if len(num_data_less_k) != 0:
+        num_data_less_k = np.concatenate(num_data_less_k, axis=0)
     folds = []
     base_indices = []
     for i in range(class_base, num_classes + class_base):
@@ -138,7 +139,8 @@ def generate_k_fold_seq(csv_file, out_dir, k, shuffle=True):
             if j == i:
                 continue
             train.append(folds[j])
-        train.append(file_info[num_data_less_k])
+        if len(num_data_less_k) != 0:
+            train.append(file_info[num_data_less_k])
         train_v = np.concatenate(train, axis=0)
         if shuffle:
             np.random.shuffle(train_v)
@@ -177,7 +179,7 @@ class CsvDataset(Dataset):
         one_hot[label-self.class_base] = 1
         if image.mode != 'RGB':
             image = image.convert('RGB')
-        print("num classes: %d, class_base: %d" % (self.num_classes, self.class_base))
+        # print("num classes: %d, class_base: %d" % (self.num_classes, self.class_base))
         if self.transform is not None:
             image = self.transform(image)
         return image, one_hot
