@@ -28,6 +28,7 @@ from csv_dataset import CsvDataset
 from csv_dataset import CsvDatasetTest
 import classifi_model as wrmodel
 import pandas as pd
+import data_process
 
 
 if __name__ == "__main__":
@@ -54,7 +55,9 @@ if __name__ == "__main__":
     normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
                                      std=[0.229, 0.224, 0.225])
     train_transforms = transforms.Compose([
-        transforms.Resize(image_size, interpolation=PIL.Image.BICUBIC),
+        # transforms.RandomResizedCrop(image_size, scale=(1.0, 1.0), ratio=(1.0, 1.0),
+        #                              interpolation=PIL.Image.BICUBIC),
+        data_process.ResizeFill(image_size),
         # transforms.RandomHorizontalFlip(),
         transforms.ToTensor(),
         normalize,

@@ -27,6 +27,7 @@ from csv_dataset import CsvDataset
 import classifi_model as cmodel
 import config
 import time
+import data_process
 
 if __name__ == "__main__":
     conf = config.Config()
@@ -48,11 +49,14 @@ if __name__ == "__main__":
         image_size = opt.imageSize
     normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
                                      std=[0.229, 0.224, 0.225])
-    train_transforms = transforms.Compose(
-        [transforms.RandomResizedCrop(image_size, scale=(0.4, 1.0), interpolation=PIL.Image.BICUBIC),
-         transforms.RandomHorizontalFlip(),
-         transforms.ToTensor(),
-         normalize, ])
+    train_transforms = transforms.Compose([
+        data_process.RandomCrop(scale=(0.4, 1.0)),
+        data_process.ResizeFill(image_size),
+        data_process.RandomToHSVToRGB(),
+        transforms.RandomHorizontalFlip(),
+        transforms.RandomVerticalFlip(),
+        transforms.ToTensor(),
+        normalize])
     train_dataset = CsvDataset(opt.traincsv, opt.trainroot, transform=train_transforms, extension="")
     train_loader = torch.utils.data.DataLoader(
         train_dataset, batch_size=opt.batchSize, shuffle=True, num_workers=opt.workers, drop_last=True,

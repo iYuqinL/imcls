@@ -29,6 +29,7 @@ import ensemble_model as ensemble
 import csv_dataset as csvdset
 import config
 import time
+import data_process
 
 
 label_list = ['garbage', 'health', 'others', 'waterpollute']
@@ -47,15 +48,17 @@ if __name__ == "__main__":
     normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
                                      std=[0.229, 0.224, 0.225])
     test_transforms = transforms.Compose([
-        transforms.Resize(image_size, interpolation=PIL.Image.BICUBIC),
-        # transforms.RandomHorizontalFlip(),
+        # transforms.Resize(image_size, interpolation=PIL.Image.BICUBIC),
+        data_process.ResizeFill(image_size),
         transforms.ToTensor(),
         normalize,
     ])
     st = time.time()
-    image_list, pred_labels = emodel.test_set(opt.testcsv, opt.testroot, transform=test_transforms)
+    image_list, pred_labels = emodel.test_set(opt.testcsv, opt.testroot, transform=test_transforms, bs=128)
     et = time.time()
     print("test set use time: %f" % (et-st))
-    with open(save_file, mode='w') as f:
-        for i in range(len(image_list)):
-            f.write(image_list[i]+" "+str(label_list[pred_labels[i]]) + '\n')
+    # with open(save_file, mode='w') as f:
+    #     for i in range(len(image_list)):
+    #         f.write(image_list[i]+" "+str(label_list[pred_labels[i]]) + '\n')
+    dataframe = pd.DataFrame({'FileName': image_list, 'type': pred_labels})
+    dataframe.to_csv("./test-10-b2-seq-tb-bs.csv", index=False, sep=',')

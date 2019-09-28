@@ -25,11 +25,13 @@ import torchvision.transforms as transforms
 import numpy as np
 import pandas as pd
 # import random
+import data_process
 
 
 def get_num_classes_by_labels(labels_info):
     class_base = np.Infinity
     num_classes = 0
+    # labels_info = str(labels_info)
     for label in labels_info:
         label = [int(x) for x in label.split(';')]
         label = np.asarray(label)
@@ -85,7 +87,8 @@ def generate_k_fold_seq(csv_file, out_dir, k, shuffle=True):
     * 该函数在处理数据量小于k的类别时，会把所有该类的数据都放到训练集
     '''
     csv_info = pd.read_csv(csv_file)
-    labels_info = csv_info.iloc[:, 1]
+    # labels_info = str(csv_info.iloc[:, 1])
+    labels_info = [str(x) for x in csv_info.iloc[:, 1]]
     class_base, num_classes = get_num_classes_by_labels(labels_info)
     print(num_classes)
     print(class_base)
@@ -100,7 +103,7 @@ def generate_k_fold_seq(csv_file, out_dir, k, shuffle=True):
     for i in range(class_base, num_classes + class_base):
         indices.append([])
     for i in range(len(file_info)):
-        label = file_info[i][1]
+        label = str(file_info[i][1])
         label = list(set([int(x) for x in label.split(';')]))
         for t in label:
             indices[t-class_base].append(i)
@@ -154,12 +157,12 @@ class CsvDataset(Dataset):
         super(CsvDataset, self).__init__()
         self.data_info = pd.read_csv(csv_file)
         self.root_dir = root_dir
-        labels_info = self.data_info.iloc[:, 1]
+        labels_info = [str(x) for x in self.data_info.iloc[:, 1]]
         class_base, num_classes = get_num_classes_by_labels(labels_info)
         self.num_classes = num_classes
         self.class_base = class_base
+        print("num classes: %d, class_base: %d" % (self.num_classes, self.class_base))
         self.labels = np.asarray(self.data_info.iloc[:, 1])
-        # self.target_labels = np.asarray(self.data_info.iloc[:, 6])
         self.image_list = self.data_info.iloc[:, 0]
         self.transform = transform
         self.extension = extension
@@ -168,13 +171,13 @@ class CsvDataset(Dataset):
         im_name = os.path.join(self.root_dir, (self.image_list[index] + self.extension))
         # print(im_name)
         image = Image.open(im_name)
-        label = self.labels[index]
+        label = str(self.labels[index])
         label = np.asarray([int(x) for x in label.split(';')])
         one_hot = torch.zeros(self.num_classes)
         one_hot[label-self.class_base] = 1
         if image.mode != 'RGB':
             image = image.convert('RGB')
-        # target = int(self.target_labels[index])
+        print("num classes: %d, class_base: %d" % (self.num_classes, self.class_base))
         if self.transform is not None:
             image = self.transform(image)
         return image, one_hot
@@ -202,7 +205,7 @@ class CsvDatasetTest(Dataset):
         im_name = os.path.join(self.root_dir, (self.image_list[index] + self.extension))
         # print(im_name)
         image = Image.open(im_name)
-        label = self.labels[index]
+        label = str(self.labels[index])
         label = np.asarray([int(x) for x in label.split(';')])
         one_hot = torch.zeros(self.num_classes)
         one_hot[label-self.class_base] = 1
@@ -218,6 +221,25 @@ class CsvDatasetTest(Dataset):
 
 
 if __name__ == "__main__":
-    csv_file = "/home/yusnows/Documents/DataSets/competition/cloudRecog/Train_label.csv"
+    csv_file = "/home/yusnows/Documents/cloudRecog/data/processed/train_labels.csv"
+    train_csv = "/home/yusnows/Documents/cloudRecog/data/processed/train_labels.csv"
+    train_root = "/home/yusnows/Documents/cloudRecog/data/processed/train/"
     # generate_k_fold(csv_file, "./folds", 10)
-    generate_k_fold_seq(csv_file, "./folds", 10)
+    # generate_k_fold_seq(csv_file, "./folds-test", 10)
+    image_size = 224
+    normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
+                                     std=[0.229, 0.224, 0.225])
+    train_transforms = transforms.Compose([
+        # transforms.RandomResizedCrop(image_size, scale=(0.4, 1.0), interpolation=Image.BICUBIC),
+        data_process.RandomCrop(scale=(0.4, 1.0)),
+        data_process.ResizeFill(image_size),
+        data_process.RandomToHSVToRGB(),
+        transforms.RandomHorizontalFlip(),
+        transforms.RandomVerticalFlip(),
+        transforms.ToTensor(),
+        normalize,
+    ])
+    train_dataset = CsvDataset(train_csv, train_root, transform=train_transforms)
+    train_loader = torch.utils.data.DataLoader(
+        train_dataset, batch_size=32, shuffle=True, num_workers=16, drop_last=True,
+        pin_memory=False)

@@ -103,7 +103,7 @@ class EnsembleModel(object):
 
     def load_from_separate(self, root, num_model):
         for i in range(num_model):
-            filename = "%d/best_model.pth" % i
+            filename = "%d/model_valid_best.pth" % i
             model_url = os.path.join(root, filename)
             self.network.nets[i].load_state_dict(torch.load(model_url))
 
@@ -111,8 +111,9 @@ class EnsembleModel(object):
 if __name__ == "__main__":
     conf = config.Config()
     opt = conf.create_opt()
+    opt.arch = 'efficientnet-b2'
     pmodel = EnsembleModel(opt.fold_num, opt)
-    model_root = "/root/notebook/river_pollute/fold-out/"
+    model_root = "fold-out-10-b2-seq/"
     pmodel.load_from_separate(model_root, opt.fold_num)
-    pmodel.savemodel(os.path.join(model_root, "model_ensemble.pth"))
-    pmodel.loadmodel(os.path.join(model_root, "model_ensemble.pth"))
+    pmodel.savemodel(os.path.join(model_root, "model_ensemble-10-b2-seq-vb.pth"))
+    pmodel.loadmodel(os.path.join(model_root, "model_ensemble-10-b2-seq-vb.pth"))
