@@ -20,6 +20,7 @@ import torch
 import torchvision.transforms as transforms
 import PIL.Image as Image
 import numpy as np
+import PIL.ImageFilter as ImageFilter
 
 
 class ResizeFill(object):
@@ -62,12 +63,12 @@ class RandomCrop(object):
 
     def __init__(self, scale=(0.1, 1.0)):
         self.scale = scale
-        self.randmax = 1000000000
+        self.randmax = 10000000
 
     def __call__(self, img):
         rand_low = self.scale[0] * self.randmax
         rand_high = self.scale[1] * self.randmax
-        scale = float(np.random.randint(rand_low, rand_high+1))/rand_high
+        scale = float(np.random.randint(rand_low, rand_high+1))/self.randmax
         w, h = img.size
         new_h, new_w = int(h*scale), int(w*scale)
         top = np.random.randint(0, h - new_h)
@@ -103,13 +104,13 @@ class ToHSVToRGB(object):
 
 
 class RandomToHSVToRGB(object):
-    def __init__(self, probility=0.5):
+    def __init__(self, probability=0.5):
         super(RandomToHSVToRGB, self).__init__()
-        self.probility = probility
+        self.probability = probability
 
     def __call__(self, img):
         prob = np.random.random()
-        if prob <= self.probility:
+        if prob <= self.probability:
             fraction = 0.50
             img_hsv = img.convert('HSV')
             img_hsv = np.array(img_hsv)
@@ -131,16 +132,56 @@ class RandomToHSVToRGB(object):
         return img
 
 
+class RandomBlur(object):
+    def __init__(self, p=0.5):
+        super(RandomBlur, self).__init__()
+        self.probability = p
+
+    def __call__(self, img):
+        prob = np.random.random()
+        if prob < self.probability:
+            img = img.filter(ImageFilter.BLUR)
+        return img
+
+
+class RandomNoise(object):
+    def __init__(self, p=0.5):
+        super(RandomNoise, self).__init__()
+        self.probability = p
+
+    def __call__(self, img):
+        prob = np.random.random()
+        if prob < self.probability:
+            img = np.array(img, dtype=np.int32)
+            noise = np.random.normal(0, 10, img.shape)
+            img = img + noise.astype(np.int32)
+            np.clip(img, a_min=0, a_max=255, out=img)
+            img = img.astype(np.uint8)
+            img = Image.fromarray(img, 'RGB')
+        return img
+
+
 if __name__ == "__main__":
     im_file = "/home/yusnows/Documents/DataSets/competition/weatherRecog/original/test.jpg"
     im_save = "/home/yusnows/Documents/DataSets/competition/weatherRecog/original/test-1.jpg"
     img = Image.open(im_file)
     if img.mode != 'RGB':
         img = img.convert('RGB')
+
+    trans = transforms.RandomAffine(30)
+    img = trans(img)
     trans = RandomCrop(scale=(0.4, 1.0))
     img = trans(img)
     trans = ToHSVToRGB()
     img = trans(img)
-    trans = ResizeFill(224)
+    trans = ResizeFill(280)
+    img = trans(img)
+    trans = transforms.RandomHorizontalFlip()
+    img = trans(img)
+    trans = transforms.RandomVerticalFlip()
+    img = trans(img)
+    trans = RandomBlur(p=0.8)
+    img = trans(img)
+    trans = RandomNoise(p=0.8)
     img = trans(img)
     img.save(im_save)
