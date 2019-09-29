@@ -47,7 +47,7 @@ class EnsembleNet(nn.Module):
             with torch.no_grad():
                 out = self.nets[i](x)
                 # out = out.cpu().argmax(dim=1)
-                out = torch.nn.softmax(out, dim=1)  # batchsize*num_classes
+                out = torch.softmax(out, dim=1).cpu().numpy()  # batchsize*num_classes
             # for j in range(out.shape[0]):
                 votes += out
         # final_result = np.argmax(votes, axis=1)
