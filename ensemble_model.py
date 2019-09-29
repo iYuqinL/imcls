@@ -42,7 +42,7 @@ class EnsembleNet(nn.Module):
 
     def forward(self, x):
         # x = x.cuda()
-        votes = np.zeros((x.shape[0], self.num_classes))
+        votes = np.zeros((x.shape[0], self.num_classes), dtype=np.float32)
         for i in range(len(self.nets)):
             with torch.no_grad():
                 out = self.nets[i](x)
@@ -50,7 +50,8 @@ class EnsembleNet(nn.Module):
                 out = torch.nn.softmax(out, dim=1)  # batchsize*num_classes
             # for j in range(out.shape[0]):
                 votes += out
-        final_result = np.argmax(votes, axis=1)
+        # final_result = np.argmax(votes, axis=1)
+        final_result = votes
         return final_result
 
 
@@ -75,6 +76,7 @@ class EnsembleModel(object):
             images = images.to(self.device)
             st = time.time()
             pre_label = self.test(images)
+            pre_label = pre_label.argmax(1)
             et1 = time.time()
             for j in range(len(pre_label)):
                 ims_list.append(ims_name[j])
