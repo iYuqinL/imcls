@@ -58,11 +58,17 @@ if __name__ == "__main__":
                                      std=[0.229, 0.224, 0.225])
     train_transforms = transforms.Compose([
         # transforms.RandomResizedCrop(image_size, scale=(0.4, 1.0), interpolation=PIL.Image.BICUBIC),
-        data_process.RandomCrop(scale=(0.4, 1.0)),
+        transforms.RandomAffine(30),
+        data_process.RandomCrop(scale=(0.6, 1.0)),
+        data_process.ToHSVToRGB(),
         data_process.ResizeFill(image_size),
-        data_process.RandomToHSVToRGB(),
         transforms.RandomHorizontalFlip(),
         transforms.RandomVerticalFlip(),
+        transforms.ToTensor(),
+        normalize,
+    ])
+    valid_transforms = transforms.Compose([
+        data_process.ResizeFill(image_size),
         transforms.ToTensor(),
         normalize,
     ])
@@ -72,7 +78,7 @@ if __name__ == "__main__":
         trian_csv = train_csvs[fold_idx]
         valid_csv = valid_csvs[fold_idx]
         train_dataset = csvdset.CsvDataset(trian_csv, opt.trainroot, transform=train_transforms)
-        valid_dataset = csvdset.CsvDataset(valid_csv, opt.trainroot, transform=train_transforms)
+        valid_dataset = csvdset.CsvDataset(valid_csv, opt.trainroot, transform=valid_transforms)
         train_loader = torch.utils.data.DataLoader(
             train_dataset, batch_size=opt.batchSize, shuffle=True, num_workers=opt.workers, drop_last=True,
             pin_memory=False)
