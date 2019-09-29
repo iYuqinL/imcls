@@ -194,7 +194,7 @@ class CsvDatasetTest(Dataset):
         self.data_info = pd.read_csv(csv_file)
         self.root_dir = root_dir
         self.labels = np.asarray(self.data_info.iloc[:, 1])
-        labels_info = self.data_info.iloc[:, 1]
+        labels_info = [str(x) for x in self.data_info.iloc[:, 1]]
         class_base, num_classes = get_num_classes_by_labels(labels_info)
         self.num_classes = num_classes
         self.class_base = class_base
