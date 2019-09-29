@@ -42,7 +42,8 @@ if __name__ == "__main__":
             device = torch.device('cuda:%d' % gpus[0])
         else:
             device = torch.device('cpu')
-    if 'efficiennet' in opt.arch:
+    if 'efficientnet' in opt.arch:
+        print('efficientnet image size')
         image_size = EfficientNet.get_image_size(opt.arch)
     else:
         print('not efficientnet image size')
@@ -50,13 +51,15 @@ if __name__ == "__main__":
     normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
                                      std=[0.229, 0.224, 0.225])
     train_transforms = transforms.Compose([
-        data_process.RandomCrop(scale=(0.4, 1.0)),
+        transforms.RandomAffine(30),
+        data_process.RandomCrop(scale=(0.333, 1.0)),
+        data_process.RandomToHSVToRGB(probility=0.8),
         data_process.ResizeFill(image_size),
-        data_process.RandomToHSVToRGB(),
         transforms.RandomHorizontalFlip(),
         transforms.RandomVerticalFlip(),
         transforms.ToTensor(),
-        normalize])
+        normalize
+    ])
     train_dataset = CsvDataset(opt.traincsv, opt.trainroot, transform=train_transforms, extension="")
     train_loader = torch.utils.data.DataLoader(
         train_dataset, batch_size=opt.batchSize, shuffle=True, num_workers=opt.workers, drop_last=True,
