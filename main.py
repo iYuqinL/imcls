@@ -57,13 +57,15 @@ if __name__ == "__main__":
     normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
                                      std=[0.229, 0.224, 0.225])
     train_transforms = transforms.Compose([
-        # transforms.RandomResizedCrop(image_size, scale=(0.4, 1.0), interpolation=PIL.Image.BICUBIC),
-        transforms.RandomAffine(30),
-        data_process.RandomCrop(scale=(0.6, 1.0)),
-        data_process.ToHSVToRGB(),
+        # data_process.RandomCrop(scale=(0.6, 1.0)),
+        data_process.RandomAffine(30, p=0.85, translate=(0.15, 0.15)),
         data_process.ResizeFill(image_size),
-        transforms.RandomHorizontalFlip(),
-        transforms.RandomVerticalFlip(),
+        data_process.RandomNoise(p=0.9),
+        data_process.RandomErasing(p=0.9),
+        data_process.RandomShear(p=0.8),
+        # data_process.RandomHSVShift(),
+        data_process.RandomContrast(p=0.9),
+        data_process.RandomFlip(),
         transforms.ToTensor(),
         normalize,
     ])
