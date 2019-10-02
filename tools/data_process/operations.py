@@ -601,22 +601,22 @@ class RandomErasing(object):
 
 
 if __name__ == "__main__":
-    im_file = "/home/yusnows/Documents/DataSets/competition/weatherRecog/original/test.jpg"
-    im_save = "/home/yusnows/Documents/DataSets/competition/weatherRecog/original/test-1.jpg"
+    im_file = "/home/yusnows/Documents/DataSets/competition/weatherRecog/original/test-2.jpg"
+    im_save = "/home/yusnows/Documents/DataSets/competition/weatherRecog/original/test-3.jpg"
     img = Image.open(im_file)
     if img.mode != 'RGB':
         img = img.convert('RGB')
 
     trans = transforms.Compose([
-        # RandomAffine(30, p=0.9, translate=(0.1, 0.1)),
+        RandomAffine(30, p=0.9, translate=(0.1, 0.1)),
         # RandomCrop(scale=(0.8, 1.0)),
         ResizeFill(280),
         # RandomBlur(p=0.9),
-        # RandomNoise(p=0.75),
-        # RandomErasing(p=0.9),
-        # RandomShear(),
+        RandomNoise(p=0.75),
+        RandomErasing(p=0.9),
+        RandomShear(),
         # RandomSkew(p=0.9, magnitude=1),
-        # RandomContrast(p=1),
+        RandomContrast(p=1),
         # RandomColor(p=0.9),
         RandomHSVShift(p=1),
         # RandomFlip(p=0.9),
