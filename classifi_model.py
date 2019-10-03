@@ -38,11 +38,11 @@ class ClassiModel(object):
             weight_decay=1e-4, from_pretrained=False, ifcbam=False):
         super(ClassiModel, self).__init__()
         cudnn.benchmark = True
+        self.ifcbam = ifcbam
         self.device = self._determine_device(gpus)
         self.net = self._create_net(arch, num_classes, from_pretrained)
         self.optimizer = self._create_optimizer(optimv, lr, momentum, weight_decay)
         self.multi_labels = multi_labels
-        self.ifcbam = ifcbam
         if not multi_labels:
             print("single label classify, use CrossEntropy for loss")
             self.criterion = nn.CrossEntropyLoss().to(self.device)

@@ -310,9 +310,9 @@ def load_pretrained_weights(model, model_name, load_fc=True, ifcbam=False):
         if ifcbam is False:
             model.load_state_dict(state_dict)
         else:
-            state_dict.pop('_ca.fc1.weight')
-            state_dict.pop('_ca.fc1.weight')
-            state_dict.pop('_sa.conv1.weight')
+            # state_dict.pop('_ca.fc1.weight')
+            # state_dict.pop('_ca.fc1.weight')
+            # state_dict.pop('_sa.conv1.weight')
             res = model.load_state_dict(state_dict, strict=False)
             assert str(res.missing_keys) == str(['_ca.fc1.weight', '_ca.fc2.weight',
                                                  '_sa.conv1.weight']), 'issue loading pretrained weights: ca, sa'
@@ -323,10 +323,10 @@ def load_pretrained_weights(model, model_name, load_fc=True, ifcbam=False):
             res = model.load_state_dict(state_dict, strict=False)
             assert str(res.missing_keys) == str(['_fc.weight', '_fc.bias']), 'issue loading pretrained weights, fc'
         else:
-            state_dict.pop('_ca.fc1.weight')
-            state_dict.pop('_ca.fc1.weight')
-            state_dict.pop('_sa.conv1.weight')
+            # state_dict.pop('_ca.fc1.weight')
+            # state_dict.pop('_ca.fc1.weight')
+            # state_dict.pop('_sa.conv1.weight')
             res = model.load_state_dict(state_dict, strict=False)
-            assert str(res.missing_keys) == str(['ca.fc1.weight', '_ca.fc2.weight', '_sa.conv1.weight',
+            assert str(res.missing_keys) == str(['_ca.fc1.weight', '_ca.fc2.weight', '_sa.conv1.weight',
                                                  '_fc.weight', '_fc.bias']), 'issue loading pretrained weights: ca, sa, fc'
     print('Loaded pretrained weights for {}'.format(model_name))

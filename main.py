@@ -48,12 +48,12 @@ if __name__ == "__main__":
         for i in range(opt.fold_num):
             train_csvs.append(os.path.join(opt.fold_out, "%d/trian_%d.csv" % (i, i)))
             valid_csvs.append(os.path.join(opt.fold_out, "%d/valid_%d.csv" % (i, i)))
-    if 'efficiennet' in opt.arch:
-        print("efficientnet image size")
+    if 'efficientnet' in opt.arch:
         image_size = EfficientNet.get_image_size(opt.arch)
+        print("efficientnet image size: {}".format(image_size))
     else:
-        print('not efficientnet image size')
         image_size = opt.imageSize
+        print('not efficientnet image size: {}'.format(image_size))
     normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
                                      std=[0.229, 0.224, 0.225])
     train_transforms = transforms.Compose([
@@ -63,8 +63,8 @@ if __name__ == "__main__":
         data_process.RandomBlur(p=0.5),
         data_process.RandomNoise(p=0.75),
         data_process.RandomErasing(p=0.85),
-        data_process.RandomShear(p=0.8),
-        # data_process.RandomHSVShift(),
+        data_process.RandomShear(p=0.9),
+        data_process.RandomHSVShift(),
         data_process.RandomContrast(p=0.8),
         data_process.RandomFlip(),
         transforms.ToTensor(),
@@ -90,7 +90,7 @@ if __name__ == "__main__":
             pin_memory=False)
         classi_model = cmodel.ClassiModel(
             arch=opt.arch, gpus=[opt.gpu], optimv=opt.optimizer, num_classes=opt.num_classes,
-            lr=opt.lr_list[0], weight_decay=opt.weight_decay, from_pretrained=opt.from_pretrained)
+            lr=opt.lr_list[0], weight_decay=opt.weight_decay, from_pretrained=opt.from_pretrained, ifcbam=opt.ifcbam)
         avg_valid_acc, avg_valid_score = classi_model.train_fold(train_loader, valid_loader, fold_idx, opt)
         acc_list.append(avg_valid_acc)
         score_list.append(avg_valid_score)

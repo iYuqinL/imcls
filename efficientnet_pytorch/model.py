@@ -162,6 +162,7 @@ class EfficientNet(nn.Module):
         self._bn0 = nn.BatchNorm2d(num_features=out_channels, momentum=bn_mom, eps=bn_eps)
         # cbam
         if self.ifcbam:
+            print("use cbam attention module")
             self._ca = ChannelAttention(out_channels)
             self._sa = SpatialAttention()
         # Build blocks
@@ -229,7 +230,7 @@ class EfficientNet(nn.Module):
     @classmethod
     def from_pretrained(cls, model_name, num_classes=1000, ifcbam=False):
         model = EfficientNet.from_name(model_name, override_params={'num_classes': num_classes}, ifcbam=ifcbam)
-        load_pretrained_weights(model, model_name, load_fc=(num_classes == 1000))
+        load_pretrained_weights(model, model_name, load_fc=(num_classes == 1000), ifcbam=ifcbam)
         return model
 
     @classmethod
