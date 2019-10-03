@@ -112,7 +112,12 @@ if __name__ == "__main__":
     # X = np.concatenate([X_std, X], axis=0)
     # Y = np.concatenate([Y_std, Y], axis=0)
     # smote = sv.KernelADASYN()
+
     smote = sv.MulticlassOversampling(sv.kmeans_SMOTE(proportion=1.0, n_neighbors=6, n_clusters=20, irt=2.0, n_jobs=16))
+    print(X.shape)
+    X, indices = np.unique(X, return_index=True, axis=0)
+    Y = Y[indices]
+    save_dataset(X, Y, save_root, csv_name='unique.csv', dataname='unique')
     print(X.shape)
     X = X.reshape(X.shape[0], -1)
     X_resampled, Y_resampled = smote.sample(X, Y)
