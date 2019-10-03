@@ -1,8 +1,7 @@
 import torch
 from torch import nn
 from torch.nn import functional as F
-
-from .utils import (
+from .effi_utils import (
     relu_fn,
     round_filters,
     round_repeats,
@@ -12,6 +11,44 @@ from .utils import (
     efficientnet_params,
     load_pretrained_weights,
 )
+
+
+class ChannelAttention(nn.Module):
+    def __init__(self, in_planes, ratio=16):
+        super(ChannelAttention, self).__init__()
+        self.avg_pool = nn.AdaptiveAvgPool2d(1)
+        self.max_pool = nn.AdaptiveMaxPool2d(1)
+        self.ratio = ratio
+        self.fc1 = nn.Conv2d(in_planes, in_planes // self.ratio, 1, bias=False)
+        self.relu1 = nn.LeakyReLU(0.05)
+        self.fc2 = nn.Conv2d(in_planes // self.ratio, in_planes, 1, bias=False)
+        self.sigmoid = nn.Sigmoid()
+
+    def forward(self, x):
+        avg_out = self.fc2(self.relu1(self.fc1(self.avg_pool(x))))
+        max_out = self.fc2(self.relu1(self.fc1(self.max_pool(x))))
+        out = avg_out + max_out
+        out = self.sigmoid(out)
+        return out
+
+
+class SpatialAttention(nn.Module):
+    def __init__(self, kernel_size=7):
+        super(SpatialAttention, self).__init__()
+
+        assert kernel_size in (3, 7), 'kernel size must be 3 or 7'
+        padding = 3 if kernel_size == 7 else 1
+
+        self.conv1 = nn.Conv2d(2, 1, kernel_size, padding=padding, bias=False)
+        self.sigmoid = nn.Sigmoid()
+
+    def forward(self, x):
+        avg_out = torch.mean(x, dim=1, keepdim=True)  # nxcxwxh --> nx1xwxh
+        max_out, _ = torch.max(x, dim=1, keepdim=True)  # nxcxwxh --> nx1xwxh
+        x = torch.cat([avg_out, max_out], dim=1)  # nx2xwxh
+        x = self.conv1(x)
+        out = self.sigmoid(x)
+        return out
 
 
 class MBConvBlock(nn.Module):
@@ -106,50 +143,47 @@ class EfficientNet(nn.Module):
 
     """
 
-    def __init__(self, blocks_args=None, global_params=None):
+    def __init__(self, blocks_args=None, global_params=None, ifcbam=False):
         super().__init__()
         assert isinstance(blocks_args, list), 'blocks_args should be a list'
         assert len(blocks_args) > 0, 'block args must be greater than 0'
         self._global_params = global_params
         self._blocks_args = blocks_args
-
+        self.ifcbam = ifcbam
         # Get static or dynamic convolution depending on image size
         Conv2d = get_same_padding_conv2d(image_size=global_params.image_size)
-
         # Batch norm parameters
         bn_mom = 1 - self._global_params.batch_norm_momentum
         bn_eps = self._global_params.batch_norm_epsilon
-
         # Stem
         in_channels = 3  # rgb
         out_channels = round_filters(32, self._global_params)  # number of output channels
         self._conv_stem = Conv2d(in_channels, out_channels, kernel_size=3, stride=2, bias=False)
         self._bn0 = nn.BatchNorm2d(num_features=out_channels, momentum=bn_mom, eps=bn_eps)
-
+        # cbam
+        if self.ifcbam:
+            self._ca = ChannelAttention(out_channels)
+            self._sa = SpatialAttention()
         # Build blocks
         self._blocks = nn.ModuleList([])
         for block_args in self._blocks_args:
-
             # Update block input and output filters based on depth multiplier.
             block_args = block_args._replace(
                 input_filters=round_filters(block_args.input_filters, self._global_params),
                 output_filters=round_filters(block_args.output_filters, self._global_params),
                 num_repeat=round_repeats(block_args.num_repeat, self._global_params)
             )
-
             # The first block needs to take care of stride and filter size increase.
             self._blocks.append(MBConvBlock(block_args, self._global_params))
             if block_args.num_repeat > 1:
                 block_args = block_args._replace(input_filters=block_args.output_filters, stride=1)
             for _ in range(block_args.num_repeat - 1):
                 self._blocks.append(MBConvBlock(block_args, self._global_params))
-
         # Head
         in_channels = block_args.output_filters  # output of final block
         out_channels = round_filters(1280, self._global_params)
         self._conv_head = Conv2d(in_channels, out_channels, kernel_size=1, bias=False)
         self._bn1 = nn.BatchNorm2d(num_features=out_channels, momentum=bn_mom, eps=bn_eps)
-
         # Final linear layer
         self._dropout = self._global_params.dropout_rate
         self._fc = nn.Linear(out_channels, self._global_params.num_classes)
@@ -159,25 +193,24 @@ class EfficientNet(nn.Module):
 
         # Stem
         x = relu_fn(self._bn0(self._conv_stem(inputs)))
-
+        # cbam
+        if self.ifcbam:
+            x = self._ca(x) * x
+            x = self._sa(x) * x
         # Blocks
         for idx, block in enumerate(self._blocks):
             drop_connect_rate = self._global_params.drop_connect_rate
             if drop_connect_rate:
                 drop_connect_rate *= float(idx) / len(self._blocks)
             x = block(x, drop_connect_rate=drop_connect_rate)
-
         # Head
         x = relu_fn(self._bn1(self._conv_head(x)))
-
         return x
 
     def forward(self, inputs):
         """ Calls extract_features to extract features, applies final linear layer, and returns logits. """
-
         # Convolution layers
         x = self.extract_features(inputs)
-
         # Pooling and final linear layer
         x = F.adaptive_avg_pool2d(x, 1)
         x = x.squeeze(len(x.shape)-1)
@@ -188,14 +221,14 @@ class EfficientNet(nn.Module):
         return x
 
     @classmethod
-    def from_name(cls, model_name, override_params=None):
+    def from_name(cls, model_name, override_params=None, ifcbam=False):
         cls._check_model_name_is_valid(model_name)
         blocks_args, global_params = get_model_params(model_name, override_params)
-        return EfficientNet(blocks_args, global_params)
+        return EfficientNet(blocks_args, global_params, ifcbam=ifcbam)
 
     @classmethod
-    def from_pretrained(cls, model_name, num_classes=1000):
-        model = EfficientNet.from_name(model_name, override_params={'num_classes': num_classes})
+    def from_pretrained(cls, model_name, num_classes=1000, ifcbam=False):
+        model = EfficientNet.from_name(model_name, override_params={'num_classes': num_classes}, ifcbam=ifcbam)
         load_pretrained_weights(model, model_name, load_fc=(num_classes == 1000))
         return model
 
@@ -213,3 +246,20 @@ class EfficientNet(nn.Module):
         valid_models = ['efficientnet_b'+str(i) for i in range(num_models)]
         if model_name.replace('-', '_') not in valid_models:
             raise ValueError('model_name should be one of: ' + ', '.join(valid_models))
+
+
+if __name__ == "__main__":
+    ca = ChannelAttention(32)
+    print("ChannelAttention")
+    for var_name in ca.state_dict():
+        print(var_name, "\t", ca.state_dict()[var_name].size())
+    print("SpatialAttention:")
+    sa = SpatialAttention()
+    for var_name in sa.state_dict():
+        print(var_name, "\t", sa.state_dict()[var_name].size())
+    print("efficientnet:")
+    effinet = EfficientNet.from_name('efficientnet-b1', override_params={'num_classes': 9}, ifcbam=True)
+    effinet_state_dict = effinet.state_dict()
+    effinet_state_dict.pop('_ca.fc1.weight')
+    for var_name in effinet_state_dict:
+        print(var_name, "\t", effinet.state_dict()[var_name].size())

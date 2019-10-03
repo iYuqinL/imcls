@@ -29,6 +29,7 @@ class Config(object):
         # -------------------------------------------------------------------------
         # network options
         config.add_argument('--arch',  default='efficientnet-b4', help='efficient net architecture')
+        config.add_argument('--ifcbam', type=bool, default=False, help='if use cbam attention')
         config.add_argument('--from_pretrained', action='store_false', default=True,
                             help='if use the official pretrained model, default is True')
         config.add_argument('--num_classes', type=int, default=4)

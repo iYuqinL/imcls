@@ -35,13 +35,14 @@ class ClassiModel(object):
     def __init__(
             self, arch='efficientnet-b7', gpus=[0], optimv='sgd',
             num_classes=10, multi_labels=False, lr=0.1, momentum=0.9,
-            weight_decay=1e-4, from_pretrained=False):
+            weight_decay=1e-4, from_pretrained=False, ifcbam=False):
         super(ClassiModel, self).__init__()
         cudnn.benchmark = True
         self.device = self._determine_device(gpus)
         self.net = self._create_net(arch, num_classes, from_pretrained)
         self.optimizer = self._create_optimizer(optimv, lr, momentum, weight_decay)
         self.multi_labels = multi_labels
+        self.ifcbam = ifcbam
         if not multi_labels:
             print("single label classify, use CrossEntropy for loss")
             self.criterion = nn.CrossEntropyLoss().to(self.device)
@@ -205,12 +206,14 @@ class ClassiModel(object):
             os.makedirs(path, exist_ok=True)
 #         model_name = path + "/weather_model_%05d.pth" % numt
         torch.save(self.net.state_dict(), name)
+        print("save mdoel {} successfully".format(name))
 
     def savemodel(self, path, numt=0):
         if not (os.path.exists(path)):
             os.makedirs(path, exist_ok=True)
-        model_name = path + "/weather_model_%05d.pth" % numt
+        model_name = path + "/classi_model_%05d.pth" % numt
         torch.save(self.net.state_dict(), model_name)
+        print("save mdoel {} successfully".format(model_name))
 
     def loadmodel(self, model_url, ifload_fc=False):
         if (os.path.exists(model_url)):
@@ -223,9 +226,9 @@ class ClassiModel(object):
                 state_dict.pop('_fc.bias')
                 res = self.net.load_state_dict(state_dict, strict=False)
                 assert str(res.missing_keys) == str(['_fc.weight', '_fc.bias']), 'issue loading pretrained weights'
-            print("model loaded successfully!")
+            print("model {} loaded successfully!".format(model_url))
         else:
-            print("model url is not exist")
+            print("model url:{} is not exist".format(model_url))
 
     def adjust_learning_rate(self, epoch, lr):
         """Sets the learning rate to the initial LR decayed by 10 every 30 epochs"""
@@ -255,10 +258,10 @@ class ClassiModel(object):
     def _create_net(self, arch, num_classes, from_pretrained):
         if from_pretrained:
             print("create efficient net from pretrained model")
-            net = EfficientNet.from_pretrained(arch, num_classes=num_classes)
+            net = EfficientNet.from_pretrained(arch, num_classes=num_classes, ifcbam=self.ifcbam)
         else:
             print("create efficient net from name")
-            net = EfficientNet.from_name(arch, override_params={'num_classes': num_classes})
+            net = EfficientNet.from_name(arch, override_params={'num_classes': num_classes}, ifcbam=self.ifcbam)
         return net.to(self.device)
 
     def _create_optimizer(self, optimv, lr, momentum, weight_decay):
