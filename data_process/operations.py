@@ -22,7 +22,48 @@ import PIL.Image as Image
 import numpy as np
 import PIL.ImageFilter as ImageFilter
 import PIL.ImageEnhance as ImageEnhance
+import PIL.ImageOps as ImageOps
 import math
+import warnings
+
+
+class HistogramEqualisation(object):
+    """
+    The class :class:`HistogramEqualisation` is used to perform histogram
+    equalisation on images passed to its :func:`perform_operation` function.
+    """
+
+    def __init__(self, p=1):
+        """
+        As there are no further user definable parameters, the class is
+        instantiated using only the :attr:`probability` argument.
+        :param probability: Controls the probability that the operation is
+         performed when it is invoked in the pipeline.
+        :type probability: Float
+        """
+        super(HistogramEqualisation, self).__init__()
+        self.probability = p
+
+    def __call__(self, img):
+        """
+        Performs histogram equalisation on the images passed as an argument
+        and returns the equalised images. There are no user definable
+        parameters for this method.
+        :param images: The image(s) on which to perform the histogram
+         equalisation.
+        :type images: List containing PIL.Image object(s).
+        :return: The transformed image(s) as a list of object(s) of type
+         PIL.Image.
+        """
+        # If an image is a colour image, the histogram will
+        # will be computed on the flattened image, which fires
+        # a warning.
+        # We may want to apply this instead to each colour channel.
+        if np.random.random() < self.probability:
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                img = ImageOps.equalize(img)
+        return img
 
 
 class ResizeFill(object):
@@ -41,6 +82,8 @@ class ResizeFill(object):
         self.interpolation = interpolation
 
     def __call__(self, img):
+        if (self.size[0] == img.size[0]) and (self.size[1] == img.size[1]):
+            return img
         ratio = self.size[0] / self.size[1]
         w, h = img.size
         if w/h < ratio:
@@ -143,6 +186,47 @@ class RandomAffine(object):
     def __call__(self, img):
         if np.random.random() < self.probability:
             img = self.trans(img)
+        return img
+
+
+class RandomBrightness(object):
+    """
+    This class is used to random change image brightness.
+    """
+
+    def __init__(self, p=0.8, min_factor=0.4, max_factor=1.33):
+        """
+        required :attr:`probability` parameter
+        :func:`~Augmentor.Pipeline.Pipeline.random_brightness` function.
+        :param probability: Controls the probability that the operation is
+         performed when it is invoked in the pipeline.
+        :param min_factor: The value between 0.0 and max_factor
+         that define the minimum adjustment of image brightness.
+         The value  0.0 gives a black image,The value 1.0 gives the original image, value bigger than 1.0 gives more bright image.
+        :param max_factor: A value should be bigger than min_factor.
+         that define the maximum adjustment of image brightness.
+         The value  0.0 gives a black image, value 1.0 gives the original image, value bigger than 1.0 gives more bright image.
+        :type probability: Float
+        :type max_factor: Float
+        :type max_factor: Float
+        """
+        super(RandomBrightness, self).__init__()
+        self.probability = p
+        self.min_factor = min_factor
+        self.max_factor = max_factor
+
+    def __call__(self, img):
+        """
+        Random change the passed image brightness.
+        :param images: The image to convert into monochrome.
+        :type images: List containing PIL.Image object(s).
+        :return: The transformed image(s) as a list of object(s) of type
+         PIL.Image.
+        """
+        if np.random.random() < self.probability:
+            factor = np.random.uniform(self.min_factor, self.max_factor)
+            image_enhancer_brightness = ImageEnhance.Brightness(img)
+            img = image_enhancer_brightness.enhance(factor)
         return img
 
 
@@ -600,6 +684,54 @@ class RandomErasing(object):
         return image
 
 
+class RandomZoom(object):
+    """
+    This class is used to zoom into random areas of the image.
+    """
+
+    def __init__(self, p=1, percentage_area=(0.7, 1.0)):
+        """
+        Zooms into a random area of the image, rather than the centre of
+        the image, as is done by :class:`Zoom`. The zoom factor is fixed
+        unless :attr:`randomise` is set to ``True``.
+        :param probability: Controls the probability that the operation is
+         performed when it is invoked in the pipeline.
+        :param percentage_area: A value between 0.1 and 1 that represents the
+         area that will be cropped, with 1 meaning the entire area of the
+         image will be cropped and 0.1 mean 10% of the area of the image
+         will be cropped, before zooming.
+        :param randomise: If ``True``, uses the :attr:`percentage_area` as an
+         upper bound, and randomises the zoom level from between 0.1 and
+         :attr:`percentage_area`.
+        """
+        super(RandomZoom, self).__init__()
+        self.probability = p
+        self.percentage_area = percentage_area
+
+    def __call__(self, img):
+        """
+        Randomly zoom into the passed :attr:`images` by first cropping the image
+        based on the :attr:`percentage_area` argument, and then resizing the
+        image to match the size of the input area.
+        Effectively, you are zooming in on random areas of the image.
+        :param images: The image to crop an area from.
+        :type images: List containing PIL.Image object(s).
+        :return: The transformed image(s) as a list of object(s) of type
+         PIL.Image.
+        """
+        if np.random.random() < self.probability:
+            r_percentage_area = round(np.random.uniform(self.percentage_area[0], self.percentage_area[1]), 2)
+            w, h = img.size
+            w_new = int(np.floor(w * r_percentage_area))
+            h_new = int(np.floor(h * r_percentage_area))
+            random_left_shift = np.random.randint(0, (w - w_new))  # Note: randint() is from uniform distribution.
+            random_down_shift = np.random.randint(0, (h - h_new))
+            img = img.crop((random_left_shift, random_down_shift,
+                            w_new + random_left_shift, h_new + random_down_shift))
+            img = img.resize((w, h), resample=Image.BICUBIC)
+        return img
+
+
 if __name__ == "__main__":
     im_file = "/home/yusnows/Documents/DataSets/competition/weatherRecog/original/test.jpg"
     im_save = "/home/yusnows/Documents/DataSets/competition/weatherRecog/original/test-1.jpg"
@@ -614,13 +746,13 @@ if __name__ == "__main__":
         # RandomBlur(p=0.9),
         # RandomNoise(p=0.75),
         # RandomErasing(p=0.9),
-        # RandomShear(),
+        RandomShear(),
         # RandomSkew(p=0.9, magnitude=1),
         # RandomContrast(p=1),
         # RandomColor(p=0.9),
         RandomHSVShift(p=1),
         # RandomFlip(p=0.9),
+        # RandomZoom(),
     ])
     img = trans(img)
-
     img.save(im_save)
