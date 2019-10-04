@@ -10,7 +10,7 @@
     Code From : https://github.com/facebookresearch/WSL-Images/blob/master/hubconf.py
 '''
 __all__ = ['resnext101_32x8d_wsl', 'resnext101_32x16d_wsl', 'resnext101_32x32d_wsl', 'resnext101_32x48d_wsl']
-
+import torch
 from .resnet_cbam import ResNet, Bottleneck
 dependencies = ['torch', 'torchvision']
 
@@ -45,12 +45,20 @@ model_urls = {
 # 使用部分加载
 def _resnext(arch, block, layers, pretrained, progress, **kwargs):
     model = ResNet(block, layers, **kwargs)
+    load_fc = (model.num_classes == 1000)
     if pretrained:
         print('load resnext pretrained model')
-        state_dict = load_state_dict_from_url(model_urls[arch], progress=progress)
-        new_state_dict = model.state_dict()
-        new_state_dict.update(state_dict)
-        model.load_state_dict(new_state_dict)
+        state_dict = torch.load(model_urls[arch])
+        if load_fc:
+            print('load resnext pretrained model include fc layer')
+            model.load_state_dict(state_dict)
+        else:
+            print('load resnext pretrained model not include fc layer')
+            state_dict.pop('_fc.weight')
+            state_dict.pop('_fc.bias')
+            res = model.load_state_dict(state_dict, strict=False)
+            assert str(res.missing_keys) == str(['_ca.fc1.weight', '_ca.fc2.weight', '_sa.conv1.weight',
+                                                 '_fc.weight', '_fc.bias']), 'issue loading pretrained weights, fc'
     return model
 
 

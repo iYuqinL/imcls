@@ -180,8 +180,9 @@ class ResNet(nn.Module):
         super(ResNet, self).__init__()
         if norm_layer is None:
             norm_layer = nn.BatchNorm2d
+        self.num_classes = num_classes
+        print("num_classes: {}".format(num_classes))
         self._norm_layer = norm_layer
-
         self.inplanes = 64
         self.dilation = 1
         if replace_stride_with_dilation is None:
@@ -198,8 +199,8 @@ class ResNet(nn.Module):
         self.bn1 = norm_layer(self.inplanes)
         self.relu = nn.ReLU(inplace=True)
 
-        self.ca = ChannelAttention(self.inplanes)
-        self.sa = SpatialAttention()
+        self._ca = ChannelAttention(self.inplanes)
+        self._sa = SpatialAttention()
 
         self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
         self.layer1 = self._make_layer(block, 64, layers[0])
@@ -210,7 +211,7 @@ class ResNet(nn.Module):
         self.layer4 = self._make_layer(block, 512, layers[3], stride=2,
                                        dilate=replace_stride_with_dilation[2])
         self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
-        self.fc = nn.Linear(512 * block.expansion, num_classes)
+        self._fc = nn.Linear(512 * block.expansion, num_classes)
 
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
@@ -257,8 +258,8 @@ class ResNet(nn.Module):
         x = self.conv1(x)
         x = self.bn1(x)
         x = self.relu(x)
-        x = self.ca(x) * x
-        x = self.sa(x) * x
+        x = self._ca(x) * x
+        x = self._sa(x) * x
         x = self.maxpool(x)
 
         x = self.layer1(x)
@@ -268,20 +269,27 @@ class ResNet(nn.Module):
 
         x = self.avgpool(x)
         x = x.reshape(x.size(0), -1)
-        x = self.fc(x)
+        x = self._fc(x)
 
         return x
 
 
 def _resnet(arch, block, layers, pretrained, progress, **kwargs):
     model = ResNet(block, layers, **kwargs)
+    load_fc = (model.num_classes == 1000)
     if pretrained:
-        print('load resnet pretrained model')
-        state_dict = load_state_dict_from_url(model_urls[arch],
-                                              progress=progress)
-        new_state_dict = model.state_dict()
-        new_state_dict.update(state_dict)
-        model.load_state_dict(new_state_dict)
+        print('load resnext pretrained model')
+        state_dict = torch.load(model_urls[arch])
+        if load_fc:
+            print('load resnext pretrained model include fc layer')
+            model.load_state_dict(state_dict)
+        else:
+            print('load resnext pretrained model not include fc layer')
+            state_dict.pop('_fc.weight')
+            state_dict.pop('_fc.bias')
+            res = model.load_state_dict(state_dict, strict=False)
+            assert str(res.missing_keys) == str(['_ca.fc1.weight', '_ca.fc2.weight', '_sa.conv1.weight',
+                                                 '_fc.weight', '_fc.bias']), 'issue loading pretrained weights, fc'
     return model
 
 
