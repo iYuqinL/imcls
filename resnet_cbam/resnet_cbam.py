@@ -276,6 +276,7 @@ class ResNet(nn.Module):
 def _resnet(arch, block, layers, pretrained, progress, **kwargs):
     model = ResNet(block, layers, **kwargs)
     if pretrained:
+        print('load resnet pretrained model')
         state_dict = load_state_dict_from_url(model_urls[arch],
                                               progress=progress)
         new_state_dict = model.state_dict()

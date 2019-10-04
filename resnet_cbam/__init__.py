@@ -1,5 +1,5 @@
-#!usr/bin/env python  
-#-*- coding:utf-8 _*- 
+#!usr/bin/env python
+# -*- coding:utf-8 _*-
 """
 @version: python3.6
 @author: ikkyu-wen
@@ -9,3 +9,4 @@
 from __future__ import absolute_import
 
 from .resnetxt_wsl import *
+from .resnet_cbam import *

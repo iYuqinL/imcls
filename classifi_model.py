@@ -27,6 +27,7 @@ import torchvision.transforms as transforms
 # from torch.utils.tensorboard import SummaryWriter
 import PIL
 from efficientnet_pytorch import EfficientNet
+import resnet_cbam as resnet
 from csv_dataset import CsvDataset
 import time
 
@@ -256,12 +257,21 @@ class ClassiModel(object):
         return device
 
     def _create_net(self, arch, num_classes, from_pretrained):
-        if from_pretrained:
-            print("create efficient net from pretrained model")
-            net = EfficientNet.from_pretrained(arch, num_classes=num_classes, ifcbam=self.ifcbam)
-        else:
-            print("create efficient net from name")
-            net = EfficientNet.from_name(arch, override_params={'num_classes': num_classes}, ifcbam=self.ifcbam)
+        if 'efficientnet' in arch:
+            if from_pretrained:
+                print("create efficient net from pretrained model")
+                net = EfficientNet.from_pretrained(arch, num_classes=num_classes, ifcbam=self.ifcbam)
+            else:
+                print("create efficient net from name")
+                net = EfficientNet.from_name(arch, override_params={'num_classes': num_classes}, ifcbam=self.ifcbam)
+        elif 'resnext101_32x8d' == arch:
+            net = resnet.resnext101_32x8d_wsl(pretrained=from_pretrained, num_classes=num_classes)
+        elif 'resnext101_32x16d' == arch:
+            net = resnet.resnext101_32x16d_wsl(pretrained=from_pretrained, num_classes=num_classes)
+        elif 'resnext101_32x32d' == arch:
+            net = resnet.resnext101_32x32d_wsl(pretrained=from_pretrained, num_classes=num_classes)
+        elif 'resnext101_32x48d' == arch:
+            net = resnet.resnext101_32x48d_wsl(pretrained=from_pretrained, num_classes=num_classes)
         return net.to(self.device)
 
     def _create_optimizer(self, optimv, lr, momentum, weight_decay):
