@@ -272,6 +272,9 @@ class ClassiModel(object):
             net = resnet.resnext101_32x32d_wsl(pretrained=from_pretrained, num_classes=num_classes)
         elif 'resnext101_32x48d' == arch:
             net = resnet.resnext101_32x48d_wsl(pretrained=from_pretrained, num_classes=num_classes)
+        else:
+            print("not suitable architecture, please check you arch parameter")
+            exit()
         return net.to(self.device)
 
     def _create_optimizer(self, optimv, lr, momentum, weight_decay):
