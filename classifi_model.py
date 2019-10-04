@@ -272,6 +272,20 @@ class ClassiModel(object):
             net = resnet.resnext101_32x32d_wsl(pretrained=from_pretrained, num_classes=num_classes)
         elif 'resnext101_32x48d' == arch:
             net = resnet.resnext101_32x48d_wsl(pretrained=from_pretrained, num_classes=num_classes)
+        elif 'resnet18' == arch:
+            net = resnet.resnet18(pretrained=from_pretrained, num_classes=num_classes)
+        elif 'resnet34' == arch:
+            net = resnet.resnet34(pretrained=from_pretrained, num_classes=num_classes)
+        elif 'resnet50' == arch:
+            net = resnet.resnet50(pretrained=from_pretrained, num_classes=num_classes)
+        elif 'resnet101' == arch:
+            net = resnet.resnet101(pretrained=from_pretrained, num_classes=num_classes)
+        elif 'resnet152' == arch:
+            net = resnet.resnet152(pretrained=from_pretrained, num_classes=num_classes)
+        elif 'resnext50_32x4d' == arch:
+            net = resnet.resnext50_32x4d(pretrained=from_pretrained, num_classes=num_classes)
+        elif 'resnext101_32x8d' == arch:
+            net = resnet.resnext101_32x8d(pretrained=from_pretrained, num_classes=num_classes)
         else:
             print("not suitable architecture, please check you arch parameter")
             exit()
