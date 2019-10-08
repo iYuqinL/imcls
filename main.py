@@ -91,6 +91,8 @@ if __name__ == "__main__":
         classi_model = cmodel.ClassiModel(
             arch=opt.arch, gpus=[opt.gpu], optimv=opt.optimizer, num_classes=opt.num_classes,
             lr=opt.lr_list[0], weight_decay=opt.weight_decay, from_pretrained=opt.from_pretrained, ifcbam=opt.ifcbam)
+        print("there are %d images in the training set, %d in the validation set" %
+              (len(train_dataset), len(valid_dataset)))
         avg_valid_acc, avg_valid_score = classi_model.train_fold(train_loader, valid_loader, fold_idx, opt)
         acc_list.append(avg_valid_acc)
         score_list.append(avg_valid_score)
