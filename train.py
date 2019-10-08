@@ -51,21 +51,26 @@ if __name__ == "__main__":
     normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
                                      std=[0.229, 0.224, 0.225])
     train_transforms = transforms.Compose([
-        transforms.RandomAffine(30),
-        data_process.RandomCrop(scale=(0.333, 1.0)),
-        data_process.RandomToHSVToRGB(probility=0.8),
+        # data_process.RandomCrop(scale=(0.6, 1.0)),
+        data_process.RandomAffine(30, p=0.85, translate=(0.15, 0.15)),
         data_process.ResizeFill(image_size),
-        transforms.RandomHorizontalFlip(),
-        transforms.RandomVerticalFlip(),
+        data_process.RandomBlur(p=0.5),
+        data_process.RandomNoise(p=0.75),
+        data_process.RandomErasing(p=0.85),
+        data_process.RandomShear(p=0.9),
+        data_process.RandomHSVShift(),
+        data_process.RandomContrast(p=0.8),
+        data_process.RandomFlip(),
         transforms.ToTensor(),
-        normalize
+        normalize,
     ])
     train_dataset = CsvDataset(opt.traincsv, opt.trainroot, transform=train_transforms, extension="")
     train_loader = torch.utils.data.DataLoader(
         train_dataset, batch_size=opt.batchSize, shuffle=True, num_workers=opt.workers, drop_last=True,
         pin_memory=False)
     classi_model = cmodel.ClassiModel(
-        arch=opt.arch, gpus=[opt.gpu], num_classes=opt.num_classes, from_pretrained=opt.from_pretrained)
+        arch=opt.arch, gpus=[opt.gpu], optimv=opt.optimizer, num_classes=opt.num_classes,
+        lr=opt.lr_list[0], weight_decay=opt.weight_decay, from_pretrained=opt.from_pretrained, ifcbam=opt.ifcbam)
     if opt.model_url is not None:
         classi_model.loadmodel(opt.model_url, ifload_fc=opt.load_fc)
     if opt.eval is False:
