@@ -34,8 +34,8 @@ model_urls = {
     'resnet50': 'resnet_cbam/pretrained_model/resnet50-19c8e357.pth',
     'resnet101': 'resnet_cbam/pretrained_model/resnet101-5d3b4d8f.pth',
     'resnet152': 'resnet_cbam/pretrained_model/resnet152-b121ed2d.pth',
-    'resnext50_32x4d': 'https://download.pytorch.org/models/resnext50_32x4d-7cdf4587.pth',
-    'resnext101_32x8d': 'https://download.pytorch.org/models/resnext101_32x8d-8ba56ff5.pth',
+    'resnext50_32x4d': 'resnet_cbam/pretrained_model/resnext50_32x4d-7cdf4587.pth',
+    'resnext101_32x8d': 'resnet_cbam/pretrained_model/resnext101_32x8d-8ba56ff5.pth',
 }
 
 
@@ -199,8 +199,8 @@ class ResNet(nn.Module):
         self.bn1 = norm_layer(self.inplanes)
         self.relu = nn.ReLU(inplace=True)
 
-        self._ca = ChannelAttention(self.inplanes)
-        self._sa = SpatialAttention()
+        self.ca = ChannelAttention(self.inplanes)
+        self.sa = SpatialAttention()
 
         self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
         self.layer1 = self._make_layer(block, 64, layers[0])
@@ -211,7 +211,7 @@ class ResNet(nn.Module):
         self.layer4 = self._make_layer(block, 512, layers[3], stride=2,
                                        dilate=replace_stride_with_dilation[2])
         self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
-        self._fc = nn.Linear(512 * block.expansion, num_classes)
+        self.fc = nn.Linear(512 * block.expansion, num_classes)
 
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
@@ -242,7 +242,6 @@ class ResNet(nn.Module):
                 conv1x1(self.inplanes, planes * block.expansion, stride),
                 norm_layer(planes * block.expansion),
             )
-
         layers = []
         layers.append(block(self.inplanes, planes, stride, downsample, self.groups,
                             self.base_width, previous_dilation, norm_layer))
@@ -251,26 +250,22 @@ class ResNet(nn.Module):
             layers.append(block(self.inplanes, planes, groups=self.groups,
                                 base_width=self.base_width, dilation=self.dilation,
                                 norm_layer=norm_layer))
-
         return nn.Sequential(*layers)
 
     def forward(self, x):
         x = self.conv1(x)
         x = self.bn1(x)
         x = self.relu(x)
-        x = self._ca(x) * x
-        x = self._sa(x) * x
+        x = self.ca(x) * x
+        x = self.sa(x) * x
         x = self.maxpool(x)
-
         x = self.layer1(x)
         x = self.layer2(x)
         x = self.layer3(x)
         x = self.layer4(x)
-
         x = self.avgpool(x)
         x = x.reshape(x.size(0), -1)
-        x = self._fc(x)
-
+        x = self.fc(x)
         return x
 
 
@@ -278,18 +273,18 @@ def _resnet(arch, block, layers, pretrained, progress, **kwargs):
     model = ResNet(block, layers, **kwargs)
     load_fc = (model.num_classes == 1000)
     if pretrained:
-        print('load resnext pretrained model')
+        print('load resnet pretrained model')
         state_dict = torch.load(model_urls[arch])
         if load_fc:
-            print('load resnext pretrained model include fc layer')
+            print('load resnet pretrained model include fc layer')
             model.load_state_dict(state_dict)
         else:
-            print('load resnext pretrained model not include fc layer')
-            state_dict.pop('_fc.weight')
-            state_dict.pop('_fc.bias')
+            print('load resnet pretrained model not include fc layer')
+            state_dict.pop('fc.weight')
+            state_dict.pop('fc.bias')
             res = model.load_state_dict(state_dict, strict=False)
-            assert str(res.missing_keys) == str(['_ca.fc1.weight', '_ca.fc2.weight', '_sa.conv1.weight',
-                                                 '_fc.weight', '_fc.bias']), 'issue loading pretrained weights, fc'
+            assert str(res.missing_keys) == str(['ca.fc1.weight', 'ca.fc2.weight', 'sa.conv1.weight',
+                                                 'fc.weight', 'fc.bias']), 'issue loading pretrained weights, fc'
     return model
 
 

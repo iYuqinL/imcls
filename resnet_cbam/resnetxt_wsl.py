@@ -54,11 +54,11 @@ def _resnext(arch, block, layers, pretrained, progress, **kwargs):
             model.load_state_dict(state_dict)
         else:
             print('load resnext pretrained model not include fc layer')
-            state_dict.pop('_fc.weight')
-            state_dict.pop('_fc.bias')
+            state_dict.pop('fc.weight')
+            state_dict.pop('fc.bias')
             res = model.load_state_dict(state_dict, strict=False)
-            assert str(res.missing_keys) == str(['_ca.fc1.weight', '_ca.fc2.weight', '_sa.conv1.weight',
-                                                 '_fc.weight', '_fc.bias']), 'issue loading pretrained weights, fc'
+            assert str(res.missing_keys) == str(['ca.fc1.weight', 'ca.fc2.weight', 'sa.conv1.weight',
+                                                 'fc.weight', 'fc.bias']), 'issue loading pretrained weights, fc'
     return model
 
 
