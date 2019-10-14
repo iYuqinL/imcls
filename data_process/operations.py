@@ -106,16 +106,19 @@ class RandomCrop(object):
             is made.
     """
 
-    def __init__(self, scale=(0.1, 1.0)):
+    def __init__(self, p=0.9, scale=(0.1, 1.0)):
+        super(RandomCrop, self).__init__()
         self.scale = scale
+        self.probability = p
 
     def __call__(self, img):
-        scale = np.random.uniform(self.scale[0], self.scale[1])
-        w, h = img.size
-        new_h, new_w = int(h*scale), int(w*scale)
-        top = np.random.randint(0, h - new_h)
-        left = np.random.randint(0, w - new_w)
-        img = img.crop((left, top, left + new_w, top + new_h))
+        if np.random.random() < self.probability:
+            scale = np.random.uniform(self.scale[0], self.scale[1])
+            w, h = img.size
+            new_h, new_w = int(h*scale), int(w*scale)
+            top = np.random.randint(0, h - new_h)
+            left = np.random.randint(0, w - new_w)
+            img = img.crop((left, top, left + new_w, top + new_h))
         return img
 
 
@@ -720,7 +723,7 @@ class RandomZoom(object):
          PIL.Image.
         """
         if np.random.random() < self.probability:
-            r_percentage_area = round(np.random.uniform(self.percentage_area[0], self.percentage_area[1]), 2)
+            r_percentage_area = np.random.uniform(self.percentage_area[0], self.percentage_area[1])
             w, h = img.size
             w_new = int(np.floor(w * r_percentage_area))
             h_new = int(np.floor(h * r_percentage_area))
@@ -730,6 +733,23 @@ class RandomZoom(object):
                             w_new + random_left_shift, h_new + random_down_shift))
             img = img.resize((w, h), resample=Image.BICUBIC)
         return img
+
+
+class LabelSmoothOnehot(object):
+    def __init__(self, classes: int, smoothing=0.0):
+        super(LabelSmoothOnehot, self).__init__()
+        self.classes = classes
+        self.smoothing = smoothing
+
+    def __call__(self, target):
+        assert 0 <= self.smoothing < 1
+        confidence = 1.0 - self.smoothing
+        label_shape = torch.Size((target.size(0), self.classes))
+        with torch.no_grad():
+            true_dist = torch.empty(size=label_shape, device=target.device)
+            true_dist.fill_(self.smoothing / (self.classes - 1))
+            true_dist.scatter_(1, target.data.unsqueeze(1), confidence)
+        return true_dist
 
 
 if __name__ == "__main__":
@@ -746,13 +766,14 @@ if __name__ == "__main__":
         # RandomBlur(p=0.9),
         # RandomNoise(p=0.75),
         # RandomErasing(p=0.9),
-        RandomShear(),
+        # RandomShear(),
         # RandomSkew(p=0.9, magnitude=1),
         # RandomContrast(p=1),
         # RandomColor(p=0.9),
-        RandomHSVShift(p=1),
+        # RandomHSVShift(p=1),
         # RandomFlip(p=0.9),
         # RandomZoom(),
+        RandomBrightness(p=0.9),
     ])
     img = trans(img)
     img.save(im_save)
