@@ -305,14 +305,14 @@ url_map = {
 def load_pretrained_weights(model, model_name, load_fc=True, ifcbam=False):
     """ Loads pretrained weights, and downloads if loading for the first time. """
     # state_dict = model_zoo.load_url(url_map[model_name])
-    state_dict = torch.load(url_map[model_name])
+    if 'http' in url_map[model_name]:
+        state_dict = model_zoo.load_url(url_map[model_name])
+    else:
+        state_dict = torch.load(url_map[model_zoo])
     if load_fc:
         if ifcbam is False:
             model.load_state_dict(state_dict)
         else:
-            # state_dict.pop('_ca.fc1.weight')
-            # state_dict.pop('_ca.fc1.weight')
-            # state_dict.pop('_sa.conv1.weight')
             res = model.load_state_dict(state_dict, strict=False)
             assert str(res.missing_keys) == str(['_ca.fc1.weight', '_ca.fc2.weight',
                                                  '_sa.conv1.weight']), 'issue loading pretrained weights: ca, sa'
@@ -323,9 +323,6 @@ def load_pretrained_weights(model, model_name, load_fc=True, ifcbam=False):
             res = model.load_state_dict(state_dict, strict=False)
             assert str(res.missing_keys) == str(['_fc.weight', '_fc.bias']), 'issue loading pretrained weights, fc'
         else:
-            # state_dict.pop('_ca.fc1.weight')
-            # state_dict.pop('_ca.fc1.weight')
-            # state_dict.pop('_sa.conv1.weight')
             res = model.load_state_dict(state_dict, strict=False)
             assert str(res.missing_keys) == str(['_ca.fc1.weight', '_ca.fc2.weight', '_sa.conv1.weight',
                                                  '_fc.weight', '_fc.bias']), 'issue loading pretrained weights: ca, sa, fc'

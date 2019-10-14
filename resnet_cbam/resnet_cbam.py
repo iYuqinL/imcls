@@ -176,11 +176,12 @@ class ResNet(nn.Module):
 
     def __init__(self, block, layers, num_classes=1000, zero_init_residual=False,
                  groups=1, width_per_group=64, replace_stride_with_dilation=None,
-                 norm_layer=None):
+                 norm_layer=None, ifcbam=False):
         super(ResNet, self).__init__()
         if norm_layer is None:
             norm_layer = nn.BatchNorm2d
         self.num_classes = num_classes
+        self.ifcbam = ifcbam
         print("num_classes: {}".format(num_classes))
         self._norm_layer = norm_layer
         self.inplanes = 64
@@ -194,14 +195,12 @@ class ResNet(nn.Module):
                              "or a 3-element tuple, got {}".format(replace_stride_with_dilation))
         self.groups = groups
         self.base_width = width_per_group
-        self.conv1 = nn.Conv2d(3, self.inplanes, kernel_size=7, stride=2, padding=3,
-                               bias=False)
+        self.conv1 = nn.Conv2d(3, self.inplanes, kernel_size=7, stride=2, padding=3, bias=False)
         self.bn1 = norm_layer(self.inplanes)
         self.relu = nn.ReLU(inplace=True)
-
-        self.ca = ChannelAttention(self.inplanes)
-        self.sa = SpatialAttention()
-
+        if self.ifcbam:
+            self.ca = ChannelAttention(self.inplanes)
+            self.sa = SpatialAttention()
         self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
         self.layer1 = self._make_layer(block, 64, layers[0])
         self.layer2 = self._make_layer(block, 128, layers[1], stride=2,
@@ -212,14 +211,12 @@ class ResNet(nn.Module):
                                        dilate=replace_stride_with_dilation[2])
         self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
         self.fc = nn.Linear(512 * block.expansion, num_classes)
-
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
                 nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
             elif isinstance(m, (nn.BatchNorm2d, nn.GroupNorm)):
                 nn.init.constant_(m.weight, 1)
                 nn.init.constant_(m.bias, 0)
-
         # Zero-initialize the last BN in each residual branch,
         # so that the residual branch starts with zeros, and each residual block behaves like an identity.
         # This improves the model by 0.2~0.3% according to https://arxiv.org/abs/1706.02677
@@ -256,8 +253,9 @@ class ResNet(nn.Module):
         x = self.conv1(x)
         x = self.bn1(x)
         x = self.relu(x)
-        x = self.ca(x) * x
-        x = self.sa(x) * x
+        if self.ifcbam:
+            x = self.ca(x) * x
+            x = self.sa(x) * x
         x = self.maxpool(x)
         x = self.layer1(x)
         x = self.layer2(x)
@@ -271,20 +269,36 @@ class ResNet(nn.Module):
 
 def _resnet(arch, block, layers, pretrained, progress, **kwargs):
     model = ResNet(block, layers, **kwargs)
+    ifcbam = kwargs['ifcbam']
     load_fc = (model.num_classes == 1000)
     if pretrained:
-        print('load resnet pretrained model')
-        state_dict = torch.load(model_urls[arch])
-        if load_fc:
-            print('load resnet pretrained model include fc layer')
-            model.load_state_dict(state_dict)
+        print('load {} pretrained model'.format(arch))
+        if 'http' in model_urls[arch]:
+            state_dict = load_state_dict_from_url(model_urls[arch])
         else:
-            print('load resnet pretrained model not include fc layer')
+            state_dict = torch.load(model_urls[arch])
+        if load_fc:
+            print('load {} pretrained model include fc layer'.format(arch))
+            if ifcbam is False:
+                model.load_state_dict(state_dict)
+            else:
+                res = model.load_state_dict(state_dict, strict=False)
+                assert(
+                    str(res.missing_keys) == str(['ca.fc1.weight', 'ca.fc2.weight', 'sa.conv1.weight']),
+                    'issue loading pretrained weights: ca, sa')
+        else:
+            print('load {} pretrained model not include fc layer'.format(arch))
             state_dict.pop('fc.weight')
             state_dict.pop('fc.bias')
-            res = model.load_state_dict(state_dict, strict=False)
-            assert str(res.missing_keys) == str(['ca.fc1.weight', 'ca.fc2.weight', 'sa.conv1.weight',
-                                                 'fc.weight', 'fc.bias']), 'issue loading pretrained weights, fc'
+            if ifcbam is False:
+                res = model.load_state_dict(state_dict, strict=False)
+                assert(str(res.missing_keys) == str(['fc.weight', 'fc.bias']),
+                       'issue loading pretrained weights, fc')
+            else:
+                res = model.load_state_dict(state_dict, strict=False)
+                assert(str(res.missing_keys) ==
+                       str(['ca.fc1.weight', 'ca.fc2.weight', 'sa.conv1.weight', 'fc.weight', 'fc.bias']),
+                       'issue loading pretrained weights, fc')
     return model
 
 

@@ -20,11 +20,11 @@ import os
 import torch
 import torch.nn as nn
 import torch.backends.cudnn as cudnn
+import torchvision
 import torch.optim as optim
 import numpy as np
 from efficientnet_pytorch import EfficientNet
 import torchvision.transforms as transforms
-# from torch.utils.tensorboard import SummaryWriter
 import PIL
 from efficientnet_pytorch import EfficientNet
 import resnet_cbam as resnet
@@ -39,6 +39,7 @@ class ClassiModel(object):
             weight_decay=1e-4, from_pretrained=False, ifcbam=False):
         super(ClassiModel, self).__init__()
         cudnn.benchmark = True
+        self.precision = 'FP32'
         self.ifcbam = ifcbam
         self.device = self._determine_device(gpus)
         self.net = self._create_net(arch, num_classes, from_pretrained)
@@ -264,28 +265,68 @@ class ClassiModel(object):
             else:
                 print("create efficient net from name")
                 net = EfficientNet.from_name(arch, override_params={'num_classes': num_classes}, ifcbam=self.ifcbam)
-        elif 'resnext101_32x8d' == arch:
-            net = resnet.resnext101_32x8d_wsl(pretrained=from_pretrained, num_classes=num_classes)
-        elif 'resnext101_32x16d' == arch:
-            net = resnet.resnext101_32x16d_wsl(pretrained=from_pretrained, num_classes=num_classes)
-        elif 'resnext101_32x32d' == arch:
-            net = resnet.resnext101_32x32d_wsl(pretrained=from_pretrained, num_classes=num_classes)
-        elif 'resnext101_32x48d' == arch:
-            net = resnet.resnext101_32x48d_wsl(pretrained=from_pretrained, num_classes=num_classes)
-        elif 'resnet18' == arch:
-            net = resnet.resnet18(pretrained=from_pretrained, num_classes=num_classes)
-        elif 'resnet34' == arch:
-            net = resnet.resnet34(pretrained=from_pretrained, num_classes=num_classes)
-        elif 'resnet50' == arch:
-            net = resnet.resnet50(pretrained=from_pretrained, num_classes=num_classes)
-        elif 'resnet101' == arch:
-            net = resnet.resnet101(pretrained=from_pretrained, num_classes=num_classes)
-        elif 'resnet152' == arch:
-            net = resnet.resnet152(pretrained=from_pretrained, num_classes=num_classes)
-        elif 'resnext50_32x4d' == arch:
-            net = resnet.resnext50_32x4d(pretrained=from_pretrained, num_classes=num_classes)
-        elif 'resnext101_32x8d' == arch:
-            net = resnet.resnext101_32x8d(pretrained=from_pretrained, num_classes=num_classes)
+        elif arch == 'resnext101_32x8d':
+            net = resnet.resnext101_32x8d_wsl(pretrained=from_pretrained, num_classes=num_classes, ifcbam=self.ifcbam)
+        elif arch == 'resnext101_32x16d':
+            net = resnet.resnext101_32x16d_wsl(pretrained=from_pretrained, num_classes=num_classes, ifcbam=self.ifcbam)
+        elif arch == 'resnext101_32x32d':
+            net = resnet.resnext101_32x32d_wsl(pretrained=from_pretrained, num_classes=num_classes, ifcbam=self.ifcbam)
+        elif arch == 'resnext101_32x48d':
+            net = resnet.resnext101_32x48d_wsl(pretrained=from_pretrained, num_classes=num_classes, ifcbam=self.ifcbam)
+        elif arch == 'resnet18':
+            net = resnet.resnet18(pretrained=from_pretrained, num_classes=num_classes, ifcbam=self.ifcbam)
+        elif arch == 'resnet34':
+            net = resnet.resnet34(pretrained=from_pretrained, num_classes=num_classes, ifcbam=self.ifcbam)
+        elif arch == 'resnet50':
+            net = resnet.resnet50(pretrained=from_pretrained, num_classes=num_classes, ifcbam=self.ifcbam)
+        elif arch == 'resnet101':
+            net = resnet.resnet101(pretrained=from_pretrained, num_classes=num_classes, ifcbam=self.ifcbam)
+        elif arch == 'resnet152':
+            net = resnet.resnet152(pretrained=from_pretrained, num_classes=num_classes, ifcbam=self.ifcbam)
+        elif arch == 'resnext50_32x4d':
+            net = resnet.resnext50_32x4d(pretrained=from_pretrained, num_classes=num_classes, ifcbam=self.ifcbam)
+        elif arch == 'resnext101_32x8d':
+            net = resnet.resnext101_32x8d(pretrained=from_pretrained, num_classes=num_classes, ifcbam=self.ifcbam)
+        elif arch == 'alexnet':
+            net = torchvision.models.alexnet(pretrained=from_pretrained, num_classes=num_classes)
+        elif arch == 'vgg11':
+            net = torchvision.models.vgg11(pretrained=from_pretrained, num_classes=num_classes)
+        elif arch == 'vgg11_bn':
+            net = torchvision.models.vgg11_bn(pretrained=from_pretrained, num_classes=num_classes)
+        elif arch == 'vgg13':
+            net = torchvision.models.vgg13(pretrained=from_pretrained, num_classes=num_classes)
+        elif arch == 'vgg13_bn':
+            net = torchvision.models.vgg13_bn(pretrained=from_pretrained, num_classes=num_classes)
+        elif arch == 'vgg16':
+            net = torchvision.models.vgg16(pretrained=from_pretrained, num_classes=num_classes)
+        elif arch == 'vgg16_bn':
+            net = torchvision.models.vgg16_bn(pretrained=from_pretrained, num_classes=num_classes)
+        elif arch == 'vgg19':
+            net = torchvision.models.vgg19(pretrained=from_pretrained, num_classes=num_classes)
+        elif arch == 'vgg19_bn':
+            net = torchvision.models.vgg19_bn(pretrained=from_pretrained, num_classes=num_classes)
+        elif arch == 'inception_v3':
+            net = torchvision.models.inception_v3(pretrained=from_pretrained, num_classes=num_classes)
+        elif arch == 'shufflenet_v2_x0_5':
+            net = torchvision.models.shufflenet_v2_x0_5(pretrained=from_pretrained, num_classes=num_classes)
+        elif arch == 'shufflenet_v2_x1_0':
+            net = torchvision.models.shufflenet_v2_x1_0(pretrained=from_pretrained, num_classes=num_classes)
+        elif arch == 'shufflenet_v2_x1_5':
+            net = torchvision.models.shufflenet_v2_x1_5(pretrained=from_pretrained, num_classes=num_classes)
+        elif arch == 'shufflenet_v2_x2_0':
+            net = torchvision.models.shufflenet_v2_x2_0(pretrained=from_pretrained, num_classes=num_classes)
+        elif arch == 'mobilenet_v2':
+            net = torchvision.models.mobilenet_v2(pretrained=from_pretrained, num_classes=num_classes)
+        elif arch == 'googlenet':
+            net = torchvision.models.googlenet(pretrained=from_pretrained, num_classes=num_classes)
+        elif arch == 'densenet121':
+            net = torchvision.models.densenet121(pretrained=from_pretrained, num_classes=num_classes)
+        elif arch == 'densenet161':
+            net = torchvision.models.densenet161(pretrained=from_pretrained, num_classes=num_classes)
+        elif arch == 'densenet169':
+            net = torchvision.models.densenet169(pretrained=from_pretrained, num_classes=num_classes)
+        elif arch == 'densnet201':
+            net = torchvision.models.densenet201(pretrained=from_pretrained, num_classes=num_classes)
         else:
             print("not suitable architecture, please check you arch parameter")
             exit()

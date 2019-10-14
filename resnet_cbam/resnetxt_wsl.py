@@ -45,20 +45,36 @@ model_urls = {
 # 使用部分加载
 def _resnext(arch, block, layers, pretrained, progress, **kwargs):
     model = ResNet(block, layers, **kwargs)
+    ifcbam = kwargs['ifcbam']
     load_fc = (model.num_classes == 1000)
     if pretrained:
-        print('load resnext pretrained model')
-        state_dict = torch.load(model_urls[arch])
-        if load_fc:
-            print('load resnext pretrained model include fc layer')
-            model.load_state_dict(state_dict)
+        print('load {} pretrained model'.format(arch))
+        if 'http' in model_urls[arch]:
+            state_dict = load_state_dict_from_url(model_urls[arch])
         else:
-            print('load resnext pretrained model not include fc layer')
+            state_dict = torch.load(model_urls[arch])
+        if load_fc:
+            print('load {} pretrained model include fc layer'.format(arch))
+            if ifcbam is False:
+                model.load_state_dict(state_dict)
+            else:
+                res = model.load_state_dict(state_dict, strict=False)
+                assert(
+                    str(res.missing_keys) == str(['ca.fc1.weight', 'ca.fc2.weight', 'sa.conv1.weight']),
+                    'issue loading pretrained weights: ca, sa')
+        else:
+            print('load {} pretrained model not include fc layer'.format(arch))
             state_dict.pop('fc.weight')
             state_dict.pop('fc.bias')
-            res = model.load_state_dict(state_dict, strict=False)
-            assert str(res.missing_keys) == str(['ca.fc1.weight', 'ca.fc2.weight', 'sa.conv1.weight',
-                                                 'fc.weight', 'fc.bias']), 'issue loading pretrained weights, fc'
+            if ifcbam is False:
+                res = model.load_state_dict(state_dict, strict=False)
+                assert(str(res.missing_keys) == str(['fc.weight', 'fc.bias']),
+                       'issue loading pretrained weights, fc')
+            else:
+                res = model.load_state_dict(state_dict, strict=False)
+                assert(str(res.missing_keys) ==
+                       str(['ca.fc1.weight', 'ca.fc2.weight', 'sa.conv1.weight', 'fc.weight', 'fc.bias']),
+                       'issue loading pretrained weights, fc')
     return model
 
 
