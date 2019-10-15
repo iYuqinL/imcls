@@ -17,6 +17,7 @@
 # ----------	---	----------------------------------------------------------
 ###
 import os
+import json
 import torch
 import torch.nn as nn
 import torch.backends.cudnn as cudnn
@@ -40,6 +41,7 @@ class ClassiModel(object):
         super(ClassiModel, self).__init__()
         cudnn.benchmark = True
         self.precision = 'FP32'
+        self.arch = arch
         self.ifcbam = ifcbam
         self.device = self._determine_device(gpus)
         self.net = self._create_net(arch, num_classes, from_pretrained)
@@ -67,6 +69,12 @@ class ClassiModel(object):
 
     def train_fold(self, trainloader, validloader, fold, opt):
         start = time.time()
+        # 保存opt, 便于复现实验结果
+        opt_name = os.path.join(opt.model_save_dir, "%d/opt.pth" % fold)
+        os.makedirs(os.path.join(opt.model_save_dir, "%d" % fold), exist_ok=True)
+        with open(opt_name, 'w') as f:
+            json.dump(opt.__dict__, f)
+
         if opt.model_url is not None:
             self.loadmodel(opt.model_url, ifload_fc=opt.load_fc)
         epoch = 0
@@ -92,13 +100,13 @@ class ClassiModel(object):
                 train_acc, train_score = self.validate_fold(trainloader, opt)
                 if validloader is not None:
                     valid_acc, valid_score = self.validate_fold(validloader, opt)
-                self.savemodel_name(os.path.join(opt.fold_out, "%d/model_last.pth" % fold))
+                self.savemodel_name(os.path.join(opt.model_save_dir, "%d/model_last.pth" % fold))
                 # 这里可以控制用acc还是score来作为判断标
                 # if len(train_acc_list) == 0 or train_acc > max(train_acc_list):
                 if len(train_score_list) == 0 or train_score > max(train_score_list):
-                    self.savemodel_name(os.path.join(opt.fold_out, "%d/model_train_best.pth" % fold))
+                    self.savemodel_name(os.path.join(opt.model_save_dir, "%d/model_train_best.pth" % fold))
                 if len(valid_score_list) == 0 or valid_score > max(valid_score_list):
-                    self.savemodel_name(os.path.join(opt.fold_out, "%d/model_valid_best.pth" % fold))
+                    self.savemodel_name(os.path.join(opt.model_save_dir, "%d/model_valid_best.pth" % fold))
                 # 计算已经连续多少个epoch训练集的准确率没有上升了
                 # if len(train_acc_list) == 0 or train_acc > max(train_acc_list):
                 if len(train_score_list) == 0 or train_score > max(train_score_list):
@@ -206,7 +214,7 @@ class ClassiModel(object):
         path, _ = os.path.split(name)
         if not (os.path.exists(path)):
             os.makedirs(path, exist_ok=True)
-#         model_name = path + "/weather_model_%05d.pth" % numt
+        # model_name = path + "/weather_model_%05d.pth" % numt
         torch.save(self.net.state_dict(), name)
         print("save mdoel {} successfully".format(name))
 
@@ -223,11 +231,18 @@ class ClassiModel(object):
             if ifload_fc:
                 self.net.load_state_dict(torch.load(model_url))
             else:
-                state_dict = torch.load(model_url)
-                state_dict.pop('_fc.weight')
-                state_dict.pop('_fc.bias')
-                res = self.net.load_state_dict(state_dict, strict=False)
-                assert str(res.missing_keys) == str(['_fc.weight', '_fc.bias']), 'issue loading pretrained weights'
+                if 'efficientnet' in self.arch:
+                    state_dict = torch.load(model_url)
+                    state_dict.pop('_fc.weight')
+                    state_dict.pop('_fc.bias')
+                    res = self.net.load_state_dict(state_dict, strict=False)
+                    assert str(res.missing_keys) == str(['_fc.weight', '_fc.bias']), 'issue loading pretrained weights'
+                else:
+                    state_dict = torch.load(model_url)
+                    state_dict.pop('fc.weight')
+                    state_dict.pop('fc.bias')
+                    res = self.net.load_state_dict(state_dict, strict=False)
+                    assert str(res.missing_keys) == str(['fc.weight', 'fc.bias']), 'issue loading pretrained weights'
             print("model {} loaded successfully!".format(model_url))
         else:
             print("model url:{} is not exist".format(model_url))
@@ -265,13 +280,13 @@ class ClassiModel(object):
             else:
                 print("create efficient net from name")
                 net = EfficientNet.from_name(arch, override_params={'num_classes': num_classes}, ifcbam=self.ifcbam)
-        elif arch == 'resnext101_32x8d':
+        elif arch == 'resnext101_32x8d_wsl':
             net = resnet.resnext101_32x8d_wsl(pretrained=from_pretrained, num_classes=num_classes, ifcbam=self.ifcbam)
-        elif arch == 'resnext101_32x16d':
+        elif arch == 'resnext101_32x16d_wsl':
             net = resnet.resnext101_32x16d_wsl(pretrained=from_pretrained, num_classes=num_classes, ifcbam=self.ifcbam)
-        elif arch == 'resnext101_32x32d':
+        elif arch == 'resnext101_32x32d_wsl':
             net = resnet.resnext101_32x32d_wsl(pretrained=from_pretrained, num_classes=num_classes, ifcbam=self.ifcbam)
-        elif arch == 'resnext101_32x48d':
+        elif arch == 'resnext101_32x48d_wsl':
             net = resnet.resnext101_32x48d_wsl(pretrained=from_pretrained, num_classes=num_classes, ifcbam=self.ifcbam)
         elif arch == 'resnet18':
             net = resnet.resnet18(pretrained=from_pretrained, num_classes=num_classes, ifcbam=self.ifcbam)
