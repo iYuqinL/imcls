@@ -308,7 +308,7 @@ def load_pretrained_weights(model, model_name, load_fc=True, ifcbam=False):
     if 'http' in url_map[model_name]:
         state_dict = model_zoo.load_url(url_map[model_name])
     else:
-        state_dict = torch.load(url_map[model_zoo])
+        state_dict = torch.load(url_map[model_name])
     if load_fc:
         if ifcbam is False:
             model.load_state_dict(state_dict)
