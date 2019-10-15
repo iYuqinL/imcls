@@ -269,7 +269,10 @@ class ResNet(nn.Module):
 
 def _resnet(arch, block, layers, pretrained, progress, **kwargs):
     model = ResNet(block, layers, **kwargs)
-    ifcbam = kwargs['ifcbam']
+    if 'ifcbam' in kwargs:
+        ifcbam = kwargs['ifcbam']
+    else:
+        ifcbam = False
     load_fc = (model.num_classes == 1000)
     if pretrained:
         print('load {} pretrained model'.format(arch))
@@ -283,22 +286,20 @@ def _resnet(arch, block, layers, pretrained, progress, **kwargs):
                 model.load_state_dict(state_dict)
             else:
                 res = model.load_state_dict(state_dict, strict=False)
-                assert(
-                    str(res.missing_keys) == str(['ca.fc1.weight', 'ca.fc2.weight', 'sa.conv1.weight']),
-                    'issue loading pretrained weights: ca, sa')
+                assert str(res.missing_keys) == str(['ca.fc1.weight', 'ca.fc2.weight',
+                                                     'sa.conv1.weight']), 'issue loading pretrained weights: ca, sa'
         else:
             print('load {} pretrained model not include fc layer'.format(arch))
             state_dict.pop('fc.weight')
             state_dict.pop('fc.bias')
             if ifcbam is False:
                 res = model.load_state_dict(state_dict, strict=False)
-                assert(str(res.missing_keys) == str(['fc.weight', 'fc.bias']),
-                       'issue loading pretrained weights, fc')
+                assert str(res.missing_keys) == str(['fc.weight', 'fc.bias']), 'issue loading pretrained weights, fc'
             else:
                 res = model.load_state_dict(state_dict, strict=False)
-                assert(str(res.missing_keys) ==
-                       str(['ca.fc1.weight', 'ca.fc2.weight', 'sa.conv1.weight', 'fc.weight', 'fc.bias']),
-                       'issue loading pretrained weights, fc')
+                assert (str(res.missing_keys) ==
+                        str(['ca.fc1.weight', 'ca.fc2.weight', 'sa.conv1.weight',
+                             'fc.weight', 'fc.bias'])), 'issue loading pretrained weights, fc'
     return model
 
 
