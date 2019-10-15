@@ -33,21 +33,21 @@ if __name__ == "__main__":
     conf = config.Config()
     opt = conf.create_opt()
     print(opt)
-    # 保存opt, 便于复现实验结果
-    os.makedirs(opt.opt_save_dir, exist_ok=True)
-    with open(os.path.join(opt.opt_save_dir, 'opt.json'), 'w') as f:
-        json.dump(opt.__dict__, f)
-    # -------------------------------------------------------------------------
-    # 交叉验证
-    # -------------------------------------------------------------------------
-    # 准备交叉验证的.csv文件
-    if opt.fold_begin == 0:
-        train_csvs, valid_csvs = csvdset.generate_k_fold_seq(opt.traincsv, opt.fold_out, opt.fold_num)
+    # gen the fold csv foles
+    if opt.fold_need_gen:
+        print("generate fold csv files")
+        train_csvs, valid_csvs = csvdset.generate_k_fold_seq(opt.traincsv, opt.fold_csv_dir, opt.fold_num)
     else:
-        train_csvs, valid_csvs = [], []
-        for i in range(opt.fold_num):
-            train_csvs.append(os.path.join(opt.fold_out, "%d/trian_%d.csv" % (i, i)))
-            valid_csvs.append(os.path.join(opt.fold_out, "%d/valid_%d.csv" % (i, i)))
+        if os.path.exists(os.path.join(opt.fold_csv_dir, "%d/trian_%d.csv" % (0, 0))):
+            print("use the existing csv files")
+            train_csvs, valid_csvs = [], []
+            for i in range(opt.fold_num):
+                train_csvs.append(os.path.join(opt.fold_csv_dir, "%d/trian_%d.csv" % (i, i)))
+                valid_csvs.append(os.path.join(opt.fold_csv_dir, "%d/valid_%d.csv" % (i, i)))
+        else:
+            print("generate fold csv files")
+            train_csvs, valid_csvs = csvdset.generate_k_fold_seq(opt.traincsv, opt.fold_csv_dir, opt.fold_num)
+
     if 'efficientnet' in opt.arch:
         image_size = EfficientNet.get_image_size(opt.arch)
         print("efficientnet image size: {}".format(image_size))
@@ -78,6 +78,7 @@ if __name__ == "__main__":
     score_list, acc_list = [], []
     for fold_idx in range(opt.fold_begin, opt.fold_num):
         print("training on %d fold" % fold_idx)
+        opt.model_save_dir = os.path.join(opt.model_base_dir, opt.arch)
         trian_csv = train_csvs[fold_idx]
         valid_csv = valid_csvs[fold_idx]
         train_dataset = csvdset.CsvDataset(trian_csv, opt.trainroot, transform=train_transforms)

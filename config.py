@@ -39,19 +39,26 @@ class Config(object):
         config.add_argument('--momentum', type=float, default=0.9)
         config.add_argument('--weight_decay', type=float, default=1e-4)
         # dataset
-        config.add_argument('--trainroot', type=str, default='/home/data/V1.0/train/', help='path to dataset')
-        config.add_argument('--traincsv', type=str, default='data_csv/train.csv', help='path to dataset')
-        config.add_argument('--testroot', type=str, default='/home/data/V1.0/test/', help='path to dataset')
-        config.add_argument('--testcsv', type=str, default='data_csv/test.csv', help='path to dataset')
+        config.add_argument('--trainroot', type=str,
+                            default='../data/train/', help='path to dataset')
+        config.add_argument('--traincsv', type=str,
+                            default='../data/train_labels.csv', help='path to dataset')
+        config.add_argument('--testroot', type=str,
+                            default='../data/data_merge/merge_new/test/', help='path to dataset')
+        config.add_argument('--testcsv', type=str,
+                            default='../data/data_merge/merge_new/test.csv', help='path to dataset')
         config.add_argument('--workers', type=int,  default=32, help='number of data loading workers')
         config.add_argument('--imageSize', type=int, default=224,
                             help='the height and width of the input image to network')
         config.add_argument('--batchSize', type=int, default=8, help='input batch size')
         config.add_argument('--gpu', type=int, default=0, help='gpu id')
         # fold integrate(ensemble)
+        config.add_argument('--fold_need_gen', type=bool, default=False,
+                            help='if need to gen new fold csv files or use the exist csv files')
         config.add_argument('--fold_num', type=int, default=10, help='the number of folds')
         config.add_argument('--fold_begin', type=int, default=0, help='fold num begin to train')
-        config.add_argument('--fold_out', type=str, default='./fold-out/', help='the dir for the temp fold file')
+        config.add_argument('--fold_csv_dir', type=str, default='./datacsv/fold-csv/',
+                            help='the dir for the temp fold file')
         # load pretrained model potions
         config.add_argument('--model_url', type=str, default=None, help='the pretrained model path to load')
         config.add_argument('--load_fc', action='store_true')
@@ -60,10 +67,11 @@ class Config(object):
         # -------------------------------------------------------------------------
         config.add_argument('--epoches', type=int, default=400, help='number of epochs to train for')
         config.add_argument('--epoch_base', type=int, default=1, help='number of epoch to begin')
-        config.add_argument('--modelsave', type=str, default='./wr_model/', help='the directory to save model')
-        config.add_argument('--logdir', type=str, default='./log/', help='the directory for log')
-        config.add_argument('--result_dir', type=str, default='./result/', help='the directory for result')
-        config.add_argument('--opt_save_dir', type=str, default='./opt/', help='the directory to save the options')
+        config.add_argument('--model_base_dir', type=str, default='./baseline_models/',
+                            help='the directory to save model')
+        config.add_argument(
+            '--model_save_dir', type=str, default='./baseline_models/architecrture/fold_num',
+            help='the directory to save model')  # Don't need to set this, this option will be change by program
         config.add_argument('--max_N', type=int, default=3)
         # -------------------------------------------------------------------------
         # extra options, for compasitive
