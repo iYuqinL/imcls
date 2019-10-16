@@ -37,16 +37,29 @@ class ClassiModel(object):
     def __init__(
             self, arch='efficientnet-b7', gpus=[0], optimv='sgd',
             num_classes=10, multi_labels=False, lr=0.1, momentum=0.9,
-            weight_decay=1e-4, from_pretrained=False, ifcbam=False):
+            weight_decay=1e-4, from_pretrained=False, ifcbam=False, fix_bn_v=False):
         super(ClassiModel, self).__init__()
         cudnn.benchmark = True
         self.precision = 'FP32'
         self.arch = arch
+        self.num_classes = num_classes
         self.ifcbam = ifcbam
+        self.fix_bn_v = fix_bn_v
+        self.from_pretrained = from_pretrained
+        self.multi_labels = multi_labels
+        self.optimv = optimv
+        self.lr = lr
+        self.momentum = momentum
+        self.weight_decay = weight_decay
         self.device = self._determine_device(gpus)
         self.net = self._create_net(arch, num_classes, from_pretrained)
-        self.optimizer = self._create_optimizer(optimv, lr, momentum, weight_decay)
-        self.multi_labels = multi_labels
+        if self.fix_bn_v:
+            self.freeze_bn()
+            # because the freeze_bn function will create optimizer to make sure bn parameters will
+            # not be updated, no need to create optimizer again after freeze_bn.
+        else:
+            self.optimizer = self._create_optimizer(optimv, lr, momentum, weight_decay)
+
         if not multi_labels:
             print("single label classify, use CrossEntropy for loss")
             self.criterion = nn.CrossEntropyLoss().to(self.device)
@@ -82,7 +95,7 @@ class ClassiModel(object):
         train_score_list, valid_score_list = [], []
         valid_acc, valid_score = 0, 0
         train_acc, train_score = 0, 0
-        train_acc_std = 0.801
+        train_acc_std = 0
         for lr in opt.lr_list:
             self._set_learning_rate(lr)
             train_acc_std = train_acc_std + 0.02
@@ -127,11 +140,13 @@ class ClassiModel(object):
         max_N = opt.max_N
         avg_valid_acc = sum(valid_acc_list[-max_N:]) / max_N
         avg_valid_score = sum(valid_score_list[-max_N:]) / max_N
+        avg_train_acc = sum(train_acc_list[-max_N:])/max_N
+        avg_train_score = sum(train_score_list[-max_N:])/max_N
         print('average valid accuracy in last %d epochs:' % max_N, avg_valid_acc)
         print('average valid score in last %d epochs:' % max_N, avg_valid_score)
         end = time.time()
         print('time:', '%ds' % int(end - start))
-        return avg_valid_acc, avg_valid_score
+        return avg_valid_acc, avg_valid_score, avg_train_acc, avg_train_score
 
     def validate_fold(self, validloader, opt):
         num_correct = 0
@@ -254,6 +269,37 @@ class ClassiModel(object):
         for param_group in self.optimizer.param_groups:
             param_group['lr'] = lr
 
+    def freeze_bn(self):
+        if self.from_pretrained is False:
+            print("you can not freeze the bn layer parameters, because the network is not come from the pretrained model")
+            return
+        print("freezing the network's bn layer(s) parameters......")
+        cnt = 0
+        for name, m in self.net.named_modules():
+            if isinstance(m, nn.BatchNorm2d):
+                m.eval()
+                m.weight.requires_grad = False
+                m.bias.requires_grad = False
+                cnt += 1
+        print("freezed the network's %d bn layer(s) parameters" % cnt)
+        # make sure the optimizer will not update the freezed parameters
+        self.optimizer = self._create_optimizer(self.optimv, self.lr, self.momentum, self.weight_decay)
+        return
+
+    def unfreeze_bn(self):
+        cnt = 0
+        print("unfreezing the network's bn layer(s) parameters......")
+        for name, m in self.net.named_modules():
+            if isinstance(m, nn.BatchNorm2d):
+                m.train()
+                m.weight.requires_grad = True
+                m.bias.requires_grad = True
+                cnt += 1
+        print("unfreezed the network's %d bn layer(s) parameters" % cnt)
+        # make sure the optimizer will update the freezed parameters
+        self.optimizer = self._create_optimizer(self.optimv, self.lr, self.momentum, self.weight_decay)
+        return
+
     def _set_learning_rate(self, lr):
         print("set learning rate to %f" % lr)
         for param_group in self.optimizer.param_groups:
@@ -342,6 +388,10 @@ class ClassiModel(object):
             net = torchvision.models.densenet169(pretrained=from_pretrained, num_classes=num_classes)
         elif arch == 'densnet201':
             net = torchvision.models.densenet201(pretrained=from_pretrained, num_classes=num_classes)
+        elif arch == 'squeezenet1_0':
+            net = torchvision.models.squeezenet1_0(pretrained=from_pretrained, num_classes=num_classes)
+        elif arch == 'squeezenet1_1':
+            net = torchvision.models.squeezenet1_1(pretrained=from_pretrained, num_classes=num_classes)
         else:
             print("not suitable architecture, please check you arch parameter")
             exit()
@@ -350,11 +400,16 @@ class ClassiModel(object):
     def _create_optimizer(self, optimv, lr, momentum, weight_decay):
         print("use the %s optimizer" % optimv)
         if optimv == 'sgd':
-            optimizer = optim.SGD(self.net.parameters(), lr, momentum=momentum, weight_decay=weight_decay)
+            optimizer = optim.SGD(filter(lambda p: p.requires_grad, self.net.parameters()),
+                                  lr, momentum=momentum, weight_decay=weight_decay)
         elif optimv == 'adam':
-            optimizer = optim.Adam(self.net.parameters(), lr=lr, weight_decay=weight_decay)
+            optimizer = optim.Adam(
+                filter(lambda p: p.requires_grad, self.net.parameters()),
+                lr=lr, weight_decay=weight_decay)
         elif optimv == 'rmsprop':
-            optimizer = optim.RMSprop(self.net.parameters(), lr=lr, weight_decay=weight_decay)
+            optimizer = optim.RMSprop(
+                filter(lambda p: p.requires_grad, self.net.parameters()),
+                lr=lr, weight_decay=weight_decay)
         return optimizer
 
 
