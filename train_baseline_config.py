@@ -19,26 +19,65 @@
 import os
 import argparse
 
+# archs_list = [
+#     # 'efficientnet-b0',
+#     'efficientnet-b1',
+#     'efficientnet-b2',
+#     'efficientnet-b3',
+#     'efficientnet-b4',
+#     # 'efficientnet-b5', #large memory
+#     # 'efficientnet-b6',
+#     # 'efficientnet-b7',
+#     'resnext101_32x8d_wsl',
+#     'resnext101_32x16d_wsl',
+#     # 'resnext101_32x32d_wsl',
+#     # 'resnext101_32x48d_wsl', #large memory
+#     # 'resnet18',
+#     # 'resnet34',
+#     'resnet50',
+#     'resnet101',
+#     'resnet152',
+#     'resnext50_32x4d',
+#     # 'resnext101_32x8d',
+#     # 'alexnet',
+#     # 'vgg11',
+#     # 'vgg11_bn',
+#     # 'vgg13',
+#     'vgg13_bn',
+#     'vgg16',
+#     'vgg16_bn',
+#     # 'vgg19',
+#     'vgg19_bn',
+#     'inception_v3',
+#     'shufflenet_v2_x0_5',
+#     'shufflenet_v2_x1_0',
+#     # 'shufflenet_v2_x1_5',
+#     # 'shufflenet_v2_x2_0',
+#     # 'mobilenet_v2',
+#     'googlenet',
+#     # 'densenet121',
+#     'densenet161',
+#     # 'densenet169',
+#     'densnet201',
+#     'squeezenet1_0',
+#     'squeezenet1_1',
+# ]
+
+
 archs_list = [
     # 'efficientnet-b0',
     'efficientnet-b1',
     'efficientnet-b2',
     'efficientnet-b3',
-    'efficientnet-b4',
-    # 'efficientnet-b5',
-    # 'efficientnet-b6',
-    # 'efficientnet-b7',
-    'resnext101_32x8d_wsl',
-    'resnext101_32x16d_wsl',
-    'resnext101_32x32d_wsl',
-    # 'resnext101_32x48d_wsl', #large memory
-    # 'resnet18',
-    # 'resnet34',
+    'resnet18',
+    'resnet34',
     'resnet50',
     'resnet101',
     'resnet152',
-    'resnext50_32x4',
-    # 'resnext101_32x8d',
+    'resnext50_32x4d',
+    'resnext101_32x8d',
+    'resnext101_32x8d_wsl',
+    'resnext101_32x16d_wsl',
     # 'alexnet',
     # 'vgg11',
     # 'vgg11_bn',
@@ -55,12 +94,18 @@ archs_list = [
     # 'shufflenet_v2_x2_0',
     # 'mobilenet_v2',
     'googlenet',
+    'squeezenet1_0',
+    'squeezenet1_1',
     # 'densenet121',
     'densenet161',
     # 'densenet169',
     'densnet201',
-    'squeezenet1_0',
-    'squeezenet1_1',
+    'efficientnet-b4',
+    # 'resnext101_32x32d_wsl',
+    # 'resnext101_32x48d_wsl', #large memory
+    # 'efficientnet-b5', #large memory
+    # 'efficientnet-b6',
+    # 'efficientnet-b7',
 ]
 
 
@@ -75,6 +120,9 @@ class Config(object):
         config.add_argument('--archs', nargs='+', type=str, default=archs_list,
                             help='efficient net architecture')
         config.add_argument('--ifcbam', type=bool, default=False, help='if use cbam attention')
+        config.add_argument(
+            '--fix_bn', type=bool, default=True,
+            help='if fix the network bn layer fpor training, if use the pretrained model, fix_bn may be good.')
         config.add_argument('--from_pretrained', action='store_false', default=True,
                             help='if use the official pretrained model, default is True')
         config.add_argument('--num_classes', type=int, default=9)
@@ -90,13 +138,13 @@ class Config(object):
                             default='../data/data_merge/merge_new/test/', help='path to dataset')
         config.add_argument('--testcsv', type=str, default='../data/data_merge/merge_new/test.csv',
                             help='path to dataset')
-        config.add_argument('--workers', type=int,  default=8, help='number of data loading workers')
+        config.add_argument('--workers', type=int,  default=16, help='number of data loading workers')
         config.add_argument('--imageSize', type=int, default=224,
                             help='the height and width of the input image to network')
-        config.add_argument('--batchSize', type=int, default=8, help='input batch size')
+        config.add_argument('--batchSize', type=int, default=32, help='input batch size')
         config.add_argument('--gpu', type=int, default=0, help='gpu id')
         # fold integrate(ensemble)
-        config.add_argument('--fold_need_gen', type=bool, default=True,
+        config.add_argument('--fold_need_gen', type=bool, default=False,
                             help='if need to gen new fold csv files or use the exist csv files')
         config.add_argument('--fold_num', type=int, default=10, help='the number of folds')
         config.add_argument('--fold_begin', type=int, default=0, help='fold num begin to train')
@@ -115,7 +163,7 @@ class Config(object):
         config.add_argument(
             '--model_save_dir', type=str, default='./baseline_models/architecrture/fold_num',
             help='the directory to save model')  # Don't need to set this, this option will be change by program
-        config.add_argument('--max_N', type=int, default=3)
+        config.add_argument('--max_N', type=int, default=4)
         # -------------------------------------------------------------------------
         # baseline csv options
         # -------------------------------------------------------------------------
