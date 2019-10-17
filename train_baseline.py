@@ -148,7 +148,7 @@ if __name__ == "__main__":
                 arch=arch, gpus=[opt.gpu],
                 optimv=opt.optimizer, num_classes=opt.num_classes, lr=opt.lr_list[0],
                 weight_decay=opt.weight_decay, from_pretrained=opt.from_pretrained, ifcbam=opt.ifcbam,
-                fix_bn_v=opt.fix_bn)
+                fix_bn_v=opt.fix_bn, criterion_v=opt.criterion_v)
             print("there are %d images in the training set, %d in the validation set" %
                   (len(train_dataset), len(valid_dataset)))
             valid_acc, valid_score, train_acc, train_score = classi_model.train_fold(

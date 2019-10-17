@@ -33,24 +33,46 @@ from csv_dataset import CsvDataset
 import time
 
 
+class CrossEntropyLabelSmooth(nn.Module):
+    def __init__(self, classes, smoothing=0.1, dim=-1):
+        super(CrossEntropyLabelSmooth, self).__init__()
+        self.confidence = 1.0 - smoothing
+        self.smoothing = smoothing
+        self.cls = classes
+        self.dim = dim
+
+    def forward(self, pred, target):
+        pred = pred.log_softmax(dim=self.dim)
+        with torch.no_grad():
+            # true_dist = pred.data.clone()
+            true_dist = torch.zeros_like(pred)
+            true_dist.fill_(self.smoothing / (self.cls - 1))
+            true_dist.scatter_(1, target.data.unsqueeze(1), self.confidence)
+        return torch.mean(torch.sum(-true_dist * pred, dim=self.dim))
+
+
 class ClassiModel(object):
     def __init__(
-            self, arch='efficientnet-b7', gpus=[0], optimv='sgd',
-            num_classes=10, multi_labels=False, lr=0.1, momentum=0.9,
-            weight_decay=1e-4, from_pretrained=False, ifcbam=False, fix_bn_v=False):
+            self, arch='efficientnet-b7', gpus=[0], optimv='sgd', num_classes=10,
+            multi_labels=False, lr=0.1, momentum=0.9, weight_decay=1e-4, from_pretrained=False,
+            ifcbam=False, fix_bn_v=False, criterion_v='CrossEntropyLoss'):
         super(ClassiModel, self).__init__()
         cudnn.benchmark = True
+        # network architecture options
         self.precision = 'FP32'
         self.arch = arch
         self.num_classes = num_classes
-        self.ifcbam = ifcbam
-        self.fix_bn_v = fix_bn_v
         self.from_pretrained = from_pretrained
         self.multi_labels = multi_labels
         self.optimv = optimv
         self.lr = lr
         self.momentum = momentum
         self.weight_decay = weight_decay
+        # trick options
+        self.ifcbam = ifcbam
+        self.fix_bn_v = fix_bn_v
+        self.criterion_v = criterion_v
+
         self.device = self._determine_device(gpus)
         self.net = self._create_net(arch, num_classes, from_pretrained)
         if self.fix_bn_v:
@@ -59,13 +81,7 @@ class ClassiModel(object):
             # not be updated, no need to create optimizer again after freeze_bn.
         else:
             self.optimizer = self._create_optimizer(optimv, lr, momentum, weight_decay)
-
-        if not multi_labels:
-            print("single label classify, use CrossEntropy for loss")
-            self.criterion = nn.CrossEntropyLoss().to(self.device)
-        else:
-            print("multi labels classify, use BCEWithLogits for loss")
-            self.criterion = nn.BCEWithLogitsLoss().to(self.device)
+        self.criterion = self._create_criterion(self.multi_labels, self.criterion_v)
         self.softmax_threshold = 0.3
         self.sigmod_threshold = 0.5  # maybe sigmod is more reasonable
 
@@ -283,7 +299,12 @@ class ClassiModel(object):
                 cnt += 1
         print("freezed the network's %d bn layer(s) parameters" % cnt)
         # make sure the optimizer will not update the freezed parameters
-        self.optimizer = self._create_optimizer(self.optimv, self.lr, self.momentum, self.weight_decay)
+        if hasattr(self, 'optimizer') and isinstance(self.optimizer, optim.Optimizer):
+            for i in range(len(self.optimizer.param_grups)):
+                del self.optimizer.param_grups[0]
+            self.optimizer.add_param_group({'params': filter(lambda p: p.requires_grad, self.net.parameters())})
+        else:
+            self.optimizer = self._create_optimizer(self.optimv, self.lr, self.momentum, self.weight_decay)
         return
 
     def unfreeze_bn(self):
@@ -296,8 +317,13 @@ class ClassiModel(object):
                 m.bias.requires_grad = True
                 cnt += 1
         print("unfreezed the network's %d bn layer(s) parameters" % cnt)
-        # make sure the optimizer will update the freezed parameters
-        self.optimizer = self._create_optimizer(self.optimv, self.lr, self.momentum, self.weight_decay)
+        # make sure the optimizer will update the unfreezed parameters
+        if hasattr(self, 'optimizer') and isinstance(self.optimizer, optim.Optimizer):
+            for i in range(len(self.optimizer.param_grups)):
+                del self.optimizer.param_grups[0]
+            self.optimizer.add_param_group({'params': filter(lambda p: p.requires_grad, self.net.parameters())})
+        else:
+            self.optimizer = self._create_optimizer(self.optimv, self.lr, self.momentum, self.weight_decay)
         return
 
     def _set_learning_rate(self, lr):
@@ -411,6 +437,20 @@ class ClassiModel(object):
                 filter(lambda p: p.requires_grad, self.net.parameters()),
                 lr=lr, weight_decay=weight_decay)
         return optimizer
+
+    def _create_criterion(self, ifmulti_labels, criterion_v):
+        if not ifmulti_labels:
+            print("single label classify")
+            if criterion_v == "CrossEntropyLoss":
+                print("use CrossEntropy for loss")
+                criterion = nn.CrossEntropyLoss().to(self.device)
+            elif criterion_v == "CrossEntropyLabelSmooth":
+                print("use CrossEntropyLabelSmooth for loss")
+                criterion = CrossEntropyLabelSmooth(self.num_classes, smoothing=0.1)
+        else:
+            print("multi labels classify, use BCEWithLogits for loss")
+            criterion = nn.BCEWithLogitsLoss().to(self.device)
+        return criterion
 
 
 if __name__ == "__main__":

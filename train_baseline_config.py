@@ -120,12 +120,13 @@ class Config(object):
         config.add_argument('--archs', nargs='+', type=str, default=archs_list,
                             help='efficient net architecture')
         config.add_argument('--ifcbam', type=bool, default=False, help='if use cbam attention')
+        config.add_argument('--from_pretrained', action='store_false', default=True,
+                            help='if use the official pretrained model, default is True')
         config.add_argument(
             '--fix_bn', type=bool, default=True,
             help='if fix the network bn layer fpor training, if use the pretrained model, fix_bn may be good.')
-        config.add_argument('--from_pretrained', action='store_false', default=True,
-                            help='if use the official pretrained model, default is True')
-        config.add_argument('--num_classes', type=int, default=9)
+        config.add_argument('--criterion_v', type=str, default='CrossEntropyLoss', help='the loss criterion')
+        config.add_argument('--num_classes', type=int, default=9, help='the number of classes')
         config.add_argument('--multi_labels', action='store_true', default=False, help='multi label classify')
         config.add_argument('--optimizer', type=str, default='adam', help='the type of optimizer')
         config.add_argument('--lr_list',  nargs='+', type=float, default=[1e-3, 5e-4, 1e-4, 1e-5, 1e-6])

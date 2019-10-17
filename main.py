@@ -58,19 +58,21 @@ if __name__ == "__main__":
                                      std=[0.229, 0.224, 0.225])
     train_transforms = transforms.Compose([
         # data_process.RandomCrop(scale=(0.6, 1.0)),
+        data_process.ExifTranspose(),
         data_process.RandomAffine(30, p=0.85, translate=(0.15, 0.15)),
         data_process.ResizeFill(image_size),
         data_process.RandomBlur(p=0.5),
         data_process.RandomNoise(p=0.75),
-        data_process.RandomErasing(p=0.85),
+        # data_process.RandomErasing(p=0.85),
         data_process.RandomShear(p=0.9),
-        data_process.RandomHSVShift(),
-        data_process.RandomContrast(p=0.8),
+        # data_process.RandomHSVShift(),
+        # data_process.RandomContrast(p=0.8),
         data_process.RandomFlip(),
         transforms.ToTensor(),
         normalize,
     ])
     valid_transforms = transforms.Compose([
+        data_process.ExifTranspose(),
         data_process.ResizeFill(image_size),
         transforms.ToTensor(),
         normalize,
@@ -90,11 +92,13 @@ if __name__ == "__main__":
             valid_dataset, batch_size=opt.batchSize, shuffle=False, num_workers=opt.workers, drop_last=False,
             pin_memory=False)
         classi_model = cmodel.ClassiModel(
-            arch=opt.arch, gpus=[opt.gpu], optimv=opt.optimizer, num_classes=opt.num_classes,
-            lr=opt.lr_list[0], weight_decay=opt.weight_decay, from_pretrained=opt.from_pretrained, ifcbam=opt.ifcbam)
+            arch=opt.arch, gpus=[opt.gpu],
+            optimv=opt.optimizer, num_classes=opt.num_classes, lr=opt.lr_list[0],
+            weight_decay=opt.weight_decay, from_pretrained=opt.from_pretrained, ifcbam=opt.ifcbam,
+            fix_bn_v=opt.fix_bn, criterion_v=opt.criterion_v)
         print("there are %d images in the training set, %d in the validation set" %
               (len(train_dataset), len(valid_dataset)))
-        avg_valid_acc, avg_valid_score = classi_model.train_fold(train_loader, valid_loader, fold_idx, opt)
+        avg_valid_acc, avg_valid_score, _, _ = classi_model.train_fold(train_loader, valid_loader, fold_idx, opt)
         acc_list.append(avg_valid_acc)
         score_list.append(avg_valid_score)
 
