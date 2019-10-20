@@ -30,6 +30,7 @@ import PIL
 from efficientnet_pytorch import EfficientNet
 import resnet_cbam as resnet
 from csv_dataset import CsvDataset
+import network_arch
 import time
 
 
@@ -375,49 +376,49 @@ class ClassiModel(object):
         elif arch == 'resnext101_32x8d':
             net = resnet.resnext101_32x8d(pretrained=from_pretrained, num_classes=num_classes, ifcbam=self.ifcbam)
         elif arch == 'alexnet':
-            net = torchvision.models.alexnet(pretrained=from_pretrained, num_classes=num_classes)
+            net = network_arch.alexnet(pretrained=from_pretrained, num_classes=num_classes)
         elif arch == 'vgg11':
-            net = torchvision.models.vgg11(pretrained=from_pretrained, num_classes=num_classes)
+            net = network_arch.vgg11(pretrained=from_pretrained, num_classes=num_classes)
         elif arch == 'vgg11_bn':
-            net = torchvision.models.vgg11_bn(pretrained=from_pretrained, num_classes=num_classes)
+            net = network_arch.vgg11_bn(pretrained=from_pretrained, num_classes=num_classes)
         elif arch == 'vgg13':
-            net = torchvision.models.vgg13(pretrained=from_pretrained, num_classes=num_classes)
+            net = network_arch.vgg13(pretrained=from_pretrained, num_classes=num_classes)
         elif arch == 'vgg13_bn':
-            net = torchvision.models.vgg13_bn(pretrained=from_pretrained, num_classes=num_classes)
+            net = network_arch.vgg13_bn(pretrained=from_pretrained, num_classes=num_classes)
         elif arch == 'vgg16':
-            net = torchvision.models.vgg16(pretrained=from_pretrained, num_classes=num_classes)
+            net = network_arch.vgg16(pretrained=from_pretrained, num_classes=num_classes)
         elif arch == 'vgg16_bn':
-            net = torchvision.models.vgg16_bn(pretrained=from_pretrained, num_classes=num_classes)
+            net = network_arch.vgg16_bn(pretrained=from_pretrained, num_classes=num_classes)
         elif arch == 'vgg19':
-            net = torchvision.models.vgg19(pretrained=from_pretrained, num_classes=num_classes)
+            net = network_arch.vgg19(pretrained=from_pretrained, num_classes=num_classes)
         elif arch == 'vgg19_bn':
-            net = torchvision.models.vgg19_bn(pretrained=from_pretrained, num_classes=num_classes)
+            net = network_arch.vgg19_bn(pretrained=from_pretrained, num_classes=num_classes)
         elif arch == 'inception_v3':
-            net = torchvision.models.inception_v3(pretrained=from_pretrained, num_classes=num_classes)
+            net = network_arch.inception_v3(pretrained=from_pretrained, num_classes=num_classes)
         elif arch == 'shufflenet_v2_x0_5':
-            net = torchvision.models.shufflenet_v2_x0_5(pretrained=from_pretrained, num_classes=num_classes)
+            net = network_arch.shufflenet_v2_x0_5(pretrained=from_pretrained, num_classes=num_classes)
         elif arch == 'shufflenet_v2_x1_0':
-            net = torchvision.models.shufflenet_v2_x1_0(pretrained=from_pretrained, num_classes=num_classes)
+            net = network_arch.shufflenet_v2_x1_0(pretrained=from_pretrained, num_classes=num_classes)
         elif arch == 'shufflenet_v2_x1_5':
-            net = torchvision.models.shufflenet_v2_x1_5(pretrained=from_pretrained, num_classes=num_classes)
+            net = network_arch.shufflenet_v2_x1_5(pretrained=from_pretrained, num_classes=num_classes)
         elif arch == 'shufflenet_v2_x2_0':
-            net = torchvision.models.shufflenet_v2_x2_0(pretrained=from_pretrained, num_classes=num_classes)
+            net = network_arch.shufflenet_v2_x2_0(pretrained=from_pretrained, num_classes=num_classes)
         elif arch == 'mobilenet_v2':
-            net = torchvision.models.mobilenet_v2(pretrained=from_pretrained, num_classes=num_classes)
+            net = network_arch.mobilenet_v2(pretrained=from_pretrained, num_classes=num_classes)
         elif arch == 'googlenet':
-            net = torchvision.models.googlenet(pretrained=from_pretrained, num_classes=num_classes)
+            net = network_arch.googlenet(pretrained=from_pretrained, num_classes=num_classes)
         elif arch == 'densenet121':
-            net = torchvision.models.densenet121(pretrained=from_pretrained, num_classes=num_classes)
+            net = network_arch.densenet121(pretrained=from_pretrained, num_classes=num_classes)
         elif arch == 'densenet161':
-            net = torchvision.models.densenet161(pretrained=from_pretrained, num_classes=num_classes)
+            net = network_arch.densenet161(pretrained=from_pretrained, num_classes=num_classes)
         elif arch == 'densenet169':
-            net = torchvision.models.densenet169(pretrained=from_pretrained, num_classes=num_classes)
+            net = network_arch.densenet169(pretrained=from_pretrained, num_classes=num_classes)
         elif arch == 'densnet201':
-            net = torchvision.models.densenet201(pretrained=from_pretrained, num_classes=num_classes)
+            net = network_arch.densenet201(pretrained=from_pretrained, num_classes=num_classes)
         elif arch == 'squeezenet1_0':
-            net = torchvision.models.squeezenet1_0(pretrained=from_pretrained, num_classes=num_classes)
+            net = network_arch.squeezenet1_0(pretrained=from_pretrained, num_classes=num_classes)
         elif arch == 'squeezenet1_1':
-            net = torchvision.models.squeezenet1_1(pretrained=from_pretrained, num_classes=num_classes)
+            net = network_arch.squeezenet1_1(pretrained=from_pretrained, num_classes=num_classes)
         else:
             print("not suitable architecture, please check you arch parameter")
             exit()
