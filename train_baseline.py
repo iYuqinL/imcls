@@ -64,7 +64,7 @@ if __name__ == "__main__":
         bl_csv_dict['avg_train_score'] = list(bl_csv_info['avg_train_score'])
         for i in range(opt.fold_num):
             bl_csv_dict['f%d_valid_accur' % i] = list(bl_csv_info['f%d_valid_accur' % i])
-        bl_csv_dict['avg_train_accur'] = list(bl_csv_info['avg_train_accur'])
+        bl_csv_dict['avg_valid_accur'] = list(bl_csv_info['avg_valid_accur'])
         for i in range(opt.fold_num):
             bl_csv_dict['f%d_valid_score' % i] = list(bl_csv_info['f%d_valid_score' % i])
         bl_csv_dict['avg_valid_score'] = list(bl_csv_info['avg_valid_score'])
@@ -80,11 +80,12 @@ if __name__ == "__main__":
         bl_csv_dict['avg_train_score'] = []
         for i in range(opt.fold_num):
             bl_csv_dict['f%d_valid_accur' % i] = []
-        bl_csv_dict['avg_train_accur'] = []
+        bl_csv_dict['avg_valid_accur'] = []
         for i in range(opt.fold_num):
             bl_csv_dict['f%d_valid_score' % i] = []
         bl_csv_dict['avg_valid_score'] = []
-        # bl_csv_info = pd.DataFrame(bl_csv_dict)
+        bl_csv_info = pd.DataFrame(bl_csv_dict)
+        bl_csv_info.to_csv(opt.baseline_csv, sep=',', index=False, float_format='%.4f')
     arch_id_begin = len(bl_csv_dict['avg_valid_score'])
 
     for arch_id in range(arch_id_begin, len(opt.archs)):
