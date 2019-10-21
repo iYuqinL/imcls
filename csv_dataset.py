@@ -50,6 +50,7 @@ def generate_k_fold_sampling(csv_file, out_dir, k):
     * 用csv_file进行k次划分，用于交叉验证，每次划分，都有1/k的样本作为验证集
     * 划分后的train_*.csv和valid_*.csv保存在output_dir中
     '''
+    print("the csv_file which to seperate k folds is {}".format(csv_file))
     csv_info = pd.read_csv(csv_file)
     image_name = np.asarray(csv_info.iloc[:, 0])
     labels = np.asarray(csv_info.iloc[:, 1])
@@ -86,6 +87,7 @@ def generate_k_fold_seq(csv_file, out_dir, k, shuffle=True):
     * 该函数可以处理多标签数据也可以处理单标签数据
     * 该函数在处理数据量小于k的类别时，会把所有该类的数据都放到训练集
     '''
+    print("the csv_file which to seperate k folds is {}".format(csv_file))
     csv_info = pd.read_csv(csv_file)
     # labels_info = str(csv_info.iloc[:, 1])
     labels_info = [str(x) for x in csv_info.iloc[:, 1]]
@@ -163,6 +165,7 @@ class CsvDataset(Dataset):
         class_base, num_classes = get_num_classes_by_labels(labels_info)
         self.num_classes = num_classes
         self.class_base = class_base
+        print("csv file is: {}".format(csv_file))
         print("num classes: %d, class_base: %d" % (self.num_classes, self.class_base))
         self.labels = np.asarray(self.data_info.iloc[:, 1])
         self.image_list = self.data_info.iloc[:, 0]
