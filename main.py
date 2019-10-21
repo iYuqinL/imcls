@@ -93,7 +93,8 @@ if __name__ == "__main__":
             pin_memory=False)
         classi_model = cmodel.ClassiModel(
             arch=opt.arch, gpus=[opt.gpu],
-            optimv=opt.optimizer, num_classes=opt.num_classes, lr=opt.lr_list[0],
+            optimv=opt.optimizer, num_classes=opt.num_classes, multi_labels=opt.multi_labels,
+            regress_threshold=opt.regress_threshold, lr=opt.lr_list[0],
             weight_decay=opt.weight_decay, from_pretrained=opt.from_pretrained, ifcbam=opt.ifcbam,
             fix_bn_v=opt.fix_bn, criterion_v=opt.criterion_v)
         print("there are %d images in the training set, %d in the validation set" %

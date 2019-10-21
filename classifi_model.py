@@ -55,16 +55,19 @@ class CrossEntropyLabelSmooth(nn.Module):
 class ClassiModel(object):
     def __init__(
             self, arch='efficientnet-b7', gpus=[0], optimv='sgd', num_classes=10,
-            multi_labels=False, lr=0.1, momentum=0.9, weight_decay=1e-4, from_pretrained=False,
-            ifcbam=False, fix_bn_v=False, criterion_v='CrossEntropyLoss'):
+            multi_labels=False, regress_threshold=False, lr=0.1, momentum=0.9, weight_decay=1e-4,
+            from_pretrained=False, ifcbam=False, fix_bn_v=False, criterion_v='CrossEntropyLoss'):
         super(ClassiModel, self).__init__()
         cudnn.benchmark = True
         # network architecture options
         self.precision = 'FP32'
         self.arch = arch
         self.num_classes = num_classes
-        self.from_pretrained = from_pretrained
         self.multi_labels = multi_labels
+        # if multi_label is False, regress_threshold should not be true
+        regress_threshold = regress_threshold and multi_labels
+        self.regress_threshold = regress_threshold
+        self.from_pretrained = from_pretrained
         self.optimv = optimv
         self.lr = lr
         self.momentum = momentum
@@ -75,6 +78,10 @@ class ClassiModel(object):
         self.criterion_v = criterion_v
 
         self.device = self._determine_device(gpus)
+        self.threshold_crit = None
+        if regress_threshold:
+            num_classes += 1  # 1 is use for threshold
+            self.threshold_crit = nn.SmoothL1Loss()
         self.net = self._create_net(arch, num_classes, from_pretrained)
         if self.fix_bn_v:
             self.freeze_bn()
@@ -86,16 +93,26 @@ class ClassiModel(object):
         self.softmax_threshold = 0.3
         self.sigmod_threshold = 0.5  # maybe sigmod is more reasonable
 
-    def get_multi_labels(self, outs, method='sigmod'):
+    def get_multi_labels(self, outs, threshold=None, method='sigmod',):
         if method == 'sigmod':
             outs = torch.sigmoid(outs, dim=1)
-            threshold = self.sigmod_threshold
+            if threshold is None:
+                threshold = self.sigmod_threshold
         elif method == 'softmax':
             outs = torch.softmax(outs, dim=1)
-            threshold = self.softmax_threshold
+            if threshold is None:
+                threshold = self.softmax_threshold
         outs[outs < threshold] = 0
         outs[outs >= threshold] = 1
         return outs
+
+    def threshold_loss(self, outs, gt, threshold):
+        outs = outs.detach()
+        gt = gt.detach()
+        too_lilltle = (outs.sum(1) > gt.sum(1)).view(outs.shape[0], 1)
+        assert too_lilltle.size == threshold.size(), "threshold's shape is not the same as too_little's"
+        loss = self.threshold_crit(threshold, too_lilltle)
+        return loss
 
     def train_fold(self, trainloader, validloader, fold, opt):
         start = time.time()
@@ -180,8 +197,13 @@ class ClassiModel(object):
             if self.multi_labels is False:
                 labels = labels.argmax(dim=1)
                 pred_label = torch.argmax(out, dim=1)
+            elif self.regress_threshold:
+                threshold = out[:, self.num_classes].view(out.shpae[0], 1)  # [bs,1]
+                out = out[:, 0:self.num_classes]
+                pred_label = self.get_multi_labels(out, threshold)
             else:
-                pred_label = self.get_multi_labels(outs=out)
+                pred_label = self.get_multi_labels(out)
+
             N += labels.shape[0]
             for i in range(labels.shape[0]):
                 # if multi labels, labels[i] and pred_label is 1x(num_classes) tensor, else, they are a scalar
@@ -218,9 +240,18 @@ class ClassiModel(object):
         ims = ims.to(self.device)
         labels = labels.to(self.device)
         output = self.net(ims)  # (bs, num_classes) before sigmod
+        loss_threshold = 0
         if self.multi_labels is False:  # single label classification
             labels = labels.argmax(dim=1)
-        loss = self.criterion(output, labels)
+        elif self.regress_threshold:  # multi label classification and regress_threshold
+            # output is [bs, (num_classes+1)]
+            threshold = output[:, self.num_classes].view(output.shpae[0], 1)  # [bs,1]
+            output = output[:, 0:self.num_classes]
+            output = self.get_multi_labels(output, threshold)
+            loss_threshold = self.threshold_loss(output, labels, threshold)
+        else:
+            output = self.get_multi_labels(output)
+        loss = self.criterion(output, labels) + loss_threshold
         self.optimizer.zero_grad()
         loss.backward()
         self.optimizer.step()
