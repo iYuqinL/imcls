@@ -161,6 +161,8 @@ class EfficientNet(nn.Module):
         self._conv_stem = Conv2d(in_channels, out_channels, kernel_size=3, stride=2, bias=False)
         self._bn0 = nn.BatchNorm2d(num_features=out_channels, momentum=bn_mom, eps=bn_eps)
         # cbam
+        self.cbam_module_names = ['_ca', '_ca.avg_pool', '_ca.max_pool', '_ca.fc1', '_ca.relu1', '_ca.fc2',
+                                  '_ca.sigmoid', '_sa', '_sa.conv1', '_sa.sigmoid']
         if self.ifcbam:
             print("use cbam attention module")
             self._ca = ChannelAttention(out_channels)

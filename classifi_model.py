@@ -91,7 +91,7 @@ class ClassiModel(object):
             self.optimizer = self._create_optimizer(optimv, lr, momentum, weight_decay)
         self.criterion = self._create_criterion(self.multi_labels, self.criterion_v)
         self.softmax_threshold = 0.3
-        self.sigmod_threshold = 0.5  # maybe sigmod is more reasonable
+        self.sigmod_threshold = 0.6  # maybe sigmod is more reasonable
 
     def get_multi_labels(self, outs, threshold=None, method='sigmod',):
         if method == 'sigmod':
@@ -110,6 +110,8 @@ class ClassiModel(object):
         outs = outs.detach()
         gt = gt.detach()
         too_lilltle = (outs.sum(1) > gt.sum(1)).view(outs.shape[0], 1)
+        too_lilltle[outs.sum(1) == gt.sum(1)] = threshold[outs.sum(1) == gt.sum(1)]
+        too_lilltle = too_lilltle.detach()
         assert too_lilltle.size() == threshold.size(), "threshold's shape is not the same as too_little's"
         loss = self.threshold_crit(threshold, too_lilltle)
         return loss
@@ -150,12 +152,10 @@ class ClassiModel(object):
                 if validloader is not None:
                     valid_acc, valid_score = self.validate_fold(validloader, opt)
                 self.savemodel_name(os.path.join(opt.model_save_dir, "%d/model_last.pth" % fold))
-                # 这里可以控制用acc还是score来作为判断标
-                # if len(train_acc_list) == 0 or train_acc > max(train_acc_list):
-                if len(train_score_list) == 0 or train_score > max(train_score_list):
-                    self.savemodel_name(os.path.join(opt.model_save_dir, "%d/model_train_best.pth" % fold))
-                if len(valid_score_list) == 0 or valid_score > max(valid_score_list):
-                    self.savemodel_name(os.path.join(opt.model_save_dir, "%d/model_valid_best.pth" % fold))
+                self.savemodels(
+                    opt.model_save_dir, fold, train_acc=train_acc, train_acc_list=train_acc_list,
+                    train_score=train_score, train_score_list=train_score_list, valid_acc=valid_acc,
+                    valid_acc_list=valid_acc_list, valid_score=valid_score, valid_score_list=valid_score_list)
                 # 计算已经连续多少个epoch训练集的准确率没有上升了
                 # if len(train_acc_list) == 0 or train_acc > max(train_acc_list):
                 if len(train_score_list) == 0 or train_score > max(train_score_list):
@@ -249,6 +249,7 @@ class ClassiModel(object):
             # output is [bs, (num_classes+1)]
             threshold = output[:, self.num_classes].view(output.shpae[0], 1)  # [bs,1]
             output = output[:, 0:self.num_classes]
+            threshold = torch.sigmoid(threshold)
             output = self.get_multi_labels(output, threshold)
             loss_threshold = self.threshold_loss(output, labels, threshold)
         else:
@@ -274,6 +275,29 @@ class ClassiModel(object):
             ims = ims.to(self.device)
             output = self.net(ims)
         return output
+
+    def savemodels(self, model_save_dir, fold, train_acc=None, train_acc_list=None, train_score=None,
+                   train_score_list=None, valid_acc=None, valid_acc_list=None, valid_score=None, valid_score_list=None):
+        if ((train_acc is not None) and (train_acc_list is not None)
+                and (len(train_acc_list) == 0 or train_acc > max(train_acc_list))):
+            os.system("rm " + os.path.join(model_save_dir, "%d/model_train_accur_*.pth" % fold))
+            self.savemodel_name(
+                os.path.join(model_save_dir, "%d/model_train_accur_%0.4f.pth" % (fold, train_acc)))
+        if ((train_score is not None) and (train_score_list is not None)
+                and (len(train_score_list) == 0 or train_score > max(train_score_list))):
+            os.system("rm " + os.path.join(model_save_dir, "%d/model_train_score_*.pth" % fold))
+            self.savemodel_name(
+                os.path.join(model_save_dir, "%d/model_train_score_%.4f.pth" % (fold, train_score)))
+        if ((valid_score is not None) and (valid_score_list is not None)
+                and (len(valid_score_list) == 0 or valid_score > max(valid_score_list))):
+            os.system("rm " + os.path.join(model_save_dir, "%d/model_valid_score_*.pth" % fold))
+            self.savemodel_name(
+                os.path.join(model_save_dir, "%d/model_valid_score_%.4f.pth" % (fold, valid_score)))
+        if ((valid_acc is not None) and (valid_acc_list is not None)
+                and (len(valid_acc_list) == 0 or valid_acc > max(valid_acc_list))):
+            os.system("rm " + os.path.join(model_save_dir, "%d/model_valid_accur_*.pth" % fold))
+            self.savemodel_name(
+                os.path.join(model_save_dir, "%d/model_valid_accur_%.4f.pth" % (fold, valid_acc)))
 
     def savemodel_name(self, name):
         path, _ = os.path.split(name)
@@ -324,9 +348,17 @@ class ClassiModel(object):
             print("you can not freeze the bn layer parameters, because the network is not come from the pretrained model")
             return
         print("freezing the network's bn layer(s) parameters......")
+        if hasattr(self.net, 'ifcbam'):
+            ifcbam = self.net.ifcbam
+        else:
+            ifcbam = False
+        if ifcbam:
+            cbam_module_names = self.net.cbam_module_names
+        else:
+            cbam_module_names = []
         cnt = 0
         for name, m in self.net.named_modules():
-            if isinstance(m, nn.BatchNorm2d):
+            if isinstance(m, nn.BatchNorm2d) and (name not in cbam_module_names):
                 m.eval()
                 m.weight.requires_grad = False
                 m.bias.requires_grad = False
@@ -334,8 +366,8 @@ class ClassiModel(object):
         print("freezed the network's %d bn layer(s) parameters" % cnt)
         # make sure the optimizer will not update the freezed parameters
         if hasattr(self, 'optimizer') and isinstance(self.optimizer, optim.Optimizer):
-            for i in range(len(self.optimizer.param_grups)):
-                del self.optimizer.param_grups[0]
+            for i in range(len(self.optimizer.param_groups)):
+                del self.optimizer.param_groups[0]
             self.optimizer.add_param_group({'params': filter(lambda p: p.requires_grad, self.net.parameters())})
         else:
             self.optimizer = self._create_optimizer(self.optimv, self.lr, self.momentum, self.weight_decay)
@@ -344,8 +376,16 @@ class ClassiModel(object):
     def unfreeze_bn(self):
         cnt = 0
         print("unfreezing the network's bn layer(s) parameters......")
+        if hasattr(self.net, 'ifcbam'):
+            ifcbam = self.net.ifcbam
+        else:
+            ifcbam = False
+        if ifcbam:
+            cbam_module_names = self.net.cbam_module_names
+        else:
+            cbam_module_names = []
         for name, m in self.net.named_modules():
-            if isinstance(m, nn.BatchNorm2d):
+            if isinstance(m, nn.BatchNorm2d) and (name not in cbam_module_names):
                 m.train()
                 m.weight.requires_grad = True
                 m.bias.requires_grad = True
@@ -353,8 +393,8 @@ class ClassiModel(object):
         print("unfreezed the network's %d bn layer(s) parameters" % cnt)
         # make sure the optimizer will update the unfreezed parameters
         if hasattr(self, 'optimizer') and isinstance(self.optimizer, optim.Optimizer):
-            for i in range(len(self.optimizer.param_grups)):
-                del self.optimizer.param_grups[0]
+            for i in range(len(self.optimizer.param_groups)):
+                del self.optimizer.param_groups[0]
             self.optimizer.add_param_group({'params': filter(lambda p: p.requires_grad, self.net.parameters())})
         else:
             self.optimizer = self._create_optimizer(self.optimv, self.lr, self.momentum, self.weight_decay)

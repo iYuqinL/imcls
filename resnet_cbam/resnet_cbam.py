@@ -198,6 +198,8 @@ class ResNet(nn.Module):
         self.conv1 = nn.Conv2d(3, self.inplanes, kernel_size=7, stride=2, padding=3, bias=False)
         self.bn1 = norm_layer(self.inplanes)
         self.relu = nn.ReLU(inplace=True)
+        self.cbam_module_names = ['ca', 'ca.avg_pool', 'ca.max_pool', 'ca.fc1', 'ca.relu1', 'ca.fc2',
+                                  'ca.sigmoid', 'sa', 'sa.conv1', 'sa.sigmoid']
         if self.ifcbam:
             self.ca = ChannelAttention(self.inplanes)
             self.sa = SpatialAttention()
