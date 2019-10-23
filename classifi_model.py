@@ -110,7 +110,7 @@ class ClassiModel(object):
         outs = outs.detach()
         gt = gt.detach()
         too_lilltle = (outs.sum(1) > gt.sum(1)).view(outs.shape[0], 1)
-        assert too_lilltle.size == threshold.size(), "threshold's shape is not the same as too_little's"
+        assert too_lilltle.size() == threshold.size(), "threshold's shape is not the same as too_little's"
         loss = self.threshold_crit(threshold, too_lilltle)
         return loss
 
@@ -132,6 +132,8 @@ class ClassiModel(object):
         train_acc_std = 0
         for lr in opt.lr_list:
             self._set_learning_rate(lr)
+            if lr < opt.lr_list[0] / 20:
+                self.unfreeze_bn()
             train_acc_std = train_acc_std + 0.02
             print('set lr to %.6f' % lr)
             # 每次调整学习率后，重新计算当前有多少个epoch准确率未上升
