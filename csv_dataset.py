@@ -27,6 +27,8 @@ import pandas as pd
 # import random
 import data_process
 
+Image.MAX_IMAGE_PIXELS = 10000000000
+
 
 def get_num_classes_by_labels(labels_info):
     class_base = np.Infinity
@@ -135,7 +137,9 @@ def generate_k_fold_seq(csv_file, out_dir, k, shuffle=True):
     valid_csv_list = []
     for i in range(k):  # 作为验证集
         os.makedirs(os.path.join(out_dir, "%d/" % i), exist_ok=True)
-        valid = folds[i]
+        valid = [folds[i]]
+        valid.append(file_info[num_data_less_k])
+        valid = np.concatenate(valid, axis=0)
         train = []
         for j in range(k):
             if j == i:

@@ -91,11 +91,11 @@ class ClassiModel(object):
             self.optimizer = self._create_optimizer(optimv, lr, momentum, weight_decay)
         self.criterion = self._create_criterion(self.multi_labels, self.criterion_v)
         self.softmax_threshold = 0.3
-        self.sigmod_threshold = 0.6  # maybe sigmod is more reasonable
+        self.sigmod_threshold = 0.45  # maybe sigmod is more reasonable
 
     def get_multi_labels(self, outs, threshold=None, method='sigmod',):
         if method == 'sigmod':
-            outs = torch.sigmoid(outs, dim=1)
+            outs = torch.sigmoid(outs)
             if threshold is None:
                 threshold = self.sigmod_threshold
         elif method == 'softmax':
@@ -106,14 +106,10 @@ class ClassiModel(object):
         outs[outs >= threshold] = 1
         return outs
 
-    def threshold_loss(self, outs, gt, threshold):
+    def threshold_loss(self, outs, gt):
         outs = outs.detach()
         gt = gt.detach()
-        too_lilltle = (outs.sum(1) > gt.sum(1)).view(outs.shape[0], 1)
-        too_lilltle[outs.sum(1) == gt.sum(1)] = threshold[outs.sum(1) == gt.sum(1)]
-        too_lilltle = too_lilltle.detach()
-        assert too_lilltle.size() == threshold.size(), "threshold's shape is not the same as too_little's"
-        loss = self.threshold_crit(threshold, too_lilltle)
+        loss = 0
         return loss
 
     def train_fold(self, trainloader, validloader, fold, opt):
@@ -209,12 +205,21 @@ class ClassiModel(object):
             N += labels.shape[0]
             for i in range(labels.shape[0]):
                 # if multi labels, labels[i] and pred_label is 1x(num_classes) tensor, else, they are a scalar
-                if labels[i] == pred_label[i]:
-                    TP[labels[i]] += 1
+                if (labels[i] == pred_label[i]).sum() == labels.shape[1]:
+                    if self.multi_labels:
+                        indices = np.where((labels[i] == 1).cpu())
+                        TP[indices] += 1
+                    else:
+                        TP[labels[i]] += 1
                     num_correct += 1
                 else:
-                    FN[labels[i]] += 1
-                    FP[pred_label[i]] += 1
+                    if self.multi_labels:
+                        indices = np.where((labels[i] == 1).cpu())
+                        FN[indices] += 1
+                        FP[indices] += 1
+                    else:
+                        FN[labels[i]] += 1
+                        FP[labels[i]] += 1
         acc = num_correct / N
         # 计算precision和recall
         precision, recall = [], []
@@ -247,13 +252,8 @@ class ClassiModel(object):
             labels = labels.argmax(dim=1)
         elif self.regress_threshold:  # multi label classification and regress_threshold
             # output is [bs, (num_classes+1)]
-            threshold = output[:, self.num_classes].view(output.shpae[0], 1)  # [bs,1]
-            output = output[:, 0:self.num_classes]
-            threshold = torch.sigmoid(threshold)
-            output = self.get_multi_labels(output, threshold)
-            loss_threshold = self.threshold_loss(output, labels, threshold)
-        else:
-            output = self.get_multi_labels(output)
+            loss_threshold = self.threshold_loss(output, labels)
+
         loss = self.criterion(output, labels) + loss_threshold
         self.optimizer.zero_grad()
         loss.backward()
