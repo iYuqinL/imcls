@@ -80,6 +80,7 @@ class ClassiModel(object):
         self.device = self._determine_device(gpus)
         self.threshold_crit = None
         if regress_threshold:
+            print("regress multi labels threshold")
             num_classes += 1  # 1 is use for threshold
             self.threshold_crit = nn.SmoothL1Loss()
         self.net = self._create_net(arch, num_classes, from_pretrained)
@@ -101,10 +102,14 @@ class ClassiModel(object):
             outs = torch.sigmoid(outs)
             if threshold is None:
                 threshold = self.sigmod_threshold
+            else:
+                threshold = torch.sigmoid(threshold)
         elif method == 'softmax':
             outs = torch.softmax(outs, dim=1)
             if threshold is None:
                 threshold = self.softmax_threshold
+            else:
+                threshold = torch.sigmoid(threshold)
         outs[outs < threshold] = 0
         outs[outs >= threshold] = 1
         return outs
@@ -187,20 +192,30 @@ class ClassiModel(object):
         FP = np.zeros(opt.num_classes)
         FN = np.zeros(opt.num_classes)
         for i, data in enumerate(validloader, start=0):
-            print(i, end='\r')
             images, labels = data
             labels = labels.to(self.device)
             out = self.test(images)
             if self.multi_labels is False:
                 labels = labels.argmax(dim=1)
                 pred_label = torch.argmax(out, dim=1)
+                print(i, labels, pred_label, end='\r')
             elif self.regress_threshold:
-                threshold = out[:, self.num_classes].view(out.shpae[0], 1)  # [bs,1]
-                out = out[:, 0:self.num_classes]
+                threshold = out[:, -1].view(-1, 1)  # [bs,1]
+                out = out[:, 0:-1]
                 pred_label = self.get_multi_labels(out, threshold)
+                print(
+                    i, np.where((labels[i] == 1).cpu()),
+                    np.where((pred_label[i] == 1).cpu()),
+                    threshold.sigmoid(),
+                    end='\r')
             else:
                 pred_label = self.get_multi_labels(out)
-
+                print(
+                    i, np.where((labels[i] == 1).cpu()),
+                    np.where((pred_label[i] == 1).cpu()),
+                    threshold.sigmoid(),
+                    end='\r')
+            # print(i, labels, pred_label, end='\r')
             N += labels.shape[0]
             for i in range(labels.shape[0]):
                 # if multi labels, labels[i] and pred_label is 1x(num_classes) tensor, else, they are a scalar
@@ -268,15 +283,16 @@ class ClassiModel(object):
         outs = outs.detach()
         gt = gt.detach()
         outs = torch.sigmoid(outs)
-        outs = outs[:, : self.num_classes]
-        threshold = outs[:, self.num_classes].view(-1, 1)
-        gt_sum = gt.sum(1).view
+        outs = outs[:, 0:-1]
+        threshold = outs[:, -1].view(-1, 1)
+        gt_sum = gt.sum(1).cpu().numpy().astype(np.int)
         topk = []
         for bs_id in range(outs.shape[0]):
-            topk.append(outs[bs_id].topk(gt_sum[bs_id])[0].view(1, 1))
+            topk_tmp = (outs[bs_id].topk(gt_sum[bs_id]))
+            topk.append(topk_tmp[0][-1].view(1, 1))
         topk = torch.cat(topk, dim=0).detach()
-        topk = topk - topk * 0.01
-        print(topk.shape, threshold.shape), exit(0)
+        topk = topk - topk * 0.1
+        # print(topk.shape, threshold.shape), exit(0)
         loss = self.threshold_crit(threshold, topk)
         # loss = 0
         return loss
