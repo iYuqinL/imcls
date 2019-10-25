@@ -94,6 +94,9 @@ class ClassiModel(object):
         self.sigmod_threshold = 0.45  # maybe sigmod is more reasonable
 
     def get_multi_labels(self, outs, threshold=None, method='sigmod',):
+        """
+        this function should call only when test or validate.
+        """
         if method == 'sigmod':
             outs = torch.sigmoid(outs)
             if threshold is None:
@@ -105,15 +108,6 @@ class ClassiModel(object):
         outs[outs < threshold] = 0
         outs[outs >= threshold] = 1
         return outs
-
-    def threshold_loss(self, outs, gt):
-        if self.regress_threshold is False:
-            print("regress_threshold should be true, but it is False. please check your config")
-            exit()
-        outs = outs.detach()
-        gt = gt.detach()
-        loss = 0
-        return loss
 
     def train_fold(self, trainloader, validloader, fold, opt):
         start = time.time()
@@ -255,15 +249,37 @@ class ClassiModel(object):
         loss_threshold = 0
         if self.multi_labels is False:  # single label classification
             labels = labels.argmax(dim=1)
-        elif self.regress_threshold:  # multi label classification and regress_threshold
+        elif self.regress_threshold:  # multi label classification and regress_threshold,
+            # because loss criterion is with logit, don't need to sigmoid the output when training
             # output is [bs, (num_classes+1)]
             loss_threshold = self.threshold_loss(output, labels)
+            output = output[:, :self.num_classes]
 
         loss = self.criterion(output, labels) + loss_threshold
         self.optimizer.zero_grad()
         loss.backward()
         self.optimizer.step()
         return loss.item()
+
+    def threshold_loss(self, outs, gt):
+        if self.regress_threshold is False:
+            print("regress_threshold should be true, but it is False. please check your config")
+            exit()
+        outs = outs.detach()
+        gt = gt.detach()
+        outs = torch.sigmoid(outs)
+        outs = outs[:, : self.num_classes]
+        threshold = outs[:, self.num_classes].view(-1, 1)
+        gt_sum = gt.sum(1).view
+        topk = []
+        for bs_id in range(outs.shape[0]):
+            topk.append(outs[bs_id].topk(gt_sum[bs_id])[0].view(1, 1))
+        topk = torch.cat(topk, dim=0).detach()
+        topk = topk - topk * 0.01
+        print(topk.shape, threshold.shape), exit(0)
+        loss = self.threshold_crit(threshold, topk)
+        # loss = 0
+        return loss
 
     def validate(self, ims, labels):
         self.net.eval()
