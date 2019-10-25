@@ -107,6 +107,9 @@ class ClassiModel(object):
         return outs
 
     def threshold_loss(self, outs, gt):
+        if self.regress_threshold is False:
+            print("regress_threshold should be true, but it is False. please check your config")
+            exit()
         outs = outs.detach()
         gt = gt.detach()
         loss = 0
@@ -130,7 +133,7 @@ class ClassiModel(object):
         train_acc_std = 0
         for lr in opt.lr_list:
             self._set_learning_rate(lr)
-            if lr < opt.lr_list[0] / 20:
+            if lr <= opt.lr_list[0] / 10:
                 self.unfreeze_bn()
             train_acc_std = train_acc_std + 0.02
             print('set lr to %.6f' % lr)
@@ -173,9 +176,11 @@ class ClassiModel(object):
         avg_valid_acc = sum(valid_acc_list[-max_N:]) / max_N
         avg_valid_score = sum(valid_score_list[-max_N:]) / max_N
         avg_train_acc = sum(train_acc_list[-max_N:])/max_N
-        avg_train_score = sum(train_score_list[-max_N:])/max_N
+        avg_train_score = sum(train_score_list[-max_N:]) / max_N
         print('average valid accuracy in last %d epochs:' % max_N, avg_valid_acc)
         print('average valid score in last %d epochs:' % max_N, avg_valid_score)
+        self._save_recored(os.path.join(opt.model_save_dir, "%d" % (fold)), train_acc_list,
+                           train_score_list, valid_acc_list, valid_score_list)
         end = time.time()
         print('time:', '%ds' % int(end - start))
         return avg_valid_acc, avg_valid_score, avg_train_acc, avg_train_score
@@ -280,24 +285,24 @@ class ClassiModel(object):
                    train_score_list=None, valid_acc=None, valid_acc_list=None, valid_score=None, valid_score_list=None):
         if ((train_acc is not None) and (train_acc_list is not None)
                 and (len(train_acc_list) == 0 or train_acc > max(train_acc_list))):
-            os.system("rm " + os.path.join(model_save_dir, "%d/model_train_accur_*.pth" % fold))
+            # os.system("rm " + os.path.join(model_save_dir, "%d/model_train_accur_*.pth" % fold))
             self.savemodel_name(
-                os.path.join(model_save_dir, "%d/model_train_accur_%0.4f.pth" % (fold, train_acc)))
+                os.path.join(model_save_dir, "%d/model_train_accur_best.pth" % (fold)))
         if ((train_score is not None) and (train_score_list is not None)
                 and (len(train_score_list) == 0 or train_score > max(train_score_list))):
-            os.system("rm " + os.path.join(model_save_dir, "%d/model_train_score_*.pth" % fold))
+            # os.system("rm " + os.path.join(model_save_dir, "%d/model_train_score_*.pth" % fold))
             self.savemodel_name(
-                os.path.join(model_save_dir, "%d/model_train_score_%.4f.pth" % (fold, train_score)))
+                os.path.join(model_save_dir, "%d/model_train_score_best.pth" % (fold)))
         if ((valid_score is not None) and (valid_score_list is not None)
                 and (len(valid_score_list) == 0 or valid_score > max(valid_score_list))):
-            os.system("rm " + os.path.join(model_save_dir, "%d/model_valid_score_*.pth" % fold))
+            # os.system("rm " + os.path.join(model_save_dir, "%d/model_valid_score_*.pth" % fold))
             self.savemodel_name(
-                os.path.join(model_save_dir, "%d/model_valid_score_%.4f.pth" % (fold, valid_score)))
+                os.path.join(model_save_dir, "%d/model_valid_score_best.pth" % (fold)))
         if ((valid_acc is not None) and (valid_acc_list is not None)
                 and (len(valid_acc_list) == 0 or valid_acc > max(valid_acc_list))):
-            os.system("rm " + os.path.join(model_save_dir, "%d/model_valid_accur_*.pth" % fold))
+            # os.system("rm " + os.path.join(model_save_dir, "%d/model_valid_accur_*.pth" % fold))
             self.savemodel_name(
-                os.path.join(model_save_dir, "%d/model_valid_accur_%.4f.pth" % (fold, valid_acc)))
+                os.path.join(model_save_dir, "%d/model_valid_accur_best.pth" % (fold)))
 
     def savemodel_name(self, name):
         path, _ = os.path.split(name)
@@ -525,6 +530,18 @@ class ClassiModel(object):
             print("multi labels classify, use BCEWithLogits for loss")
             criterion = nn.BCEWithLogitsLoss().to(self.device)
         return criterion
+
+    def _save_recored(self, save_dir, train_acc_list, train_score_list, valid_acc_list, valid_score_list):
+        max_valid_acc, max_valid_acc_index = max(valid_acc_list), valid_acc_list.index(max(valid_acc_list))
+        max_valid_score, max_valid_score_index = max(valid_score_list), valid_score_list.index(max(valid_score_list))
+        max_train_acc, max_train_acc_index = max(train_acc_list), train_acc_list.index(max(train_acc_list))
+        max_train_score, max_train_score_index = max(train_score_list), train_score_list.index(max(train_score_list))
+        os.makedirs(save_dir, exist_ok=True)
+        with open(os.path.join(save_dir, "record.txt")) as f:
+            f.write("epoch: %d, max_valid_accur: %.6f \n" % (max_valid_acc_index, max_valid_acc))
+            f.write("epoch: %d, max_valid_score: %.6f \n" % (max_valid_score_index, max_valid_score))
+            f.write("epoch: %d, max_train_accur: %.6f \n" % (max_train_acc_index, max_train_acc))
+            f.write("epoch: %d, max_train_score: %.6f \n" % (max_train_score_index, max_train_score))
 
 
 if __name__ == "__main__":
