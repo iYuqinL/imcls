@@ -112,7 +112,7 @@ class ClassiModel(object):
     def train_fold(self, trainloader, validloader, fold, opt):
         start = time.time()
         # 保存opt, 便于复现实验结果
-        opt_name = os.path.join(opt.model_save_dir, "%d/opt.pth" % fold)
+        opt_name = os.path.join(opt.model_save_dir, "%d/opt.json" % fold)
         os.makedirs(os.path.join(opt.model_save_dir, "%d" % fold), exist_ok=True)
         with open(opt_name, 'w') as f:
             json.dump(opt.__dict__, f)
