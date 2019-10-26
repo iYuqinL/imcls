@@ -82,7 +82,7 @@ class ClassiModel(object):
         if regress_threshold:
             print("regress multi labels threshold")
             num_classes += 1  # 1 is use for threshold
-            self.threshold_crit = nn.L1Loss()
+            self.threshold_crit = nn.SmoothL1Loss()
         self.net = self._create_net(arch, num_classes, from_pretrained)
         if self.fix_bn_v:
             self.freeze_bn()
@@ -94,11 +94,14 @@ class ClassiModel(object):
         self.softmax_threshold = 0.3
         self.sigmod_threshold = 0.45  # maybe sigmod is more reasonable
 
-    def get_multi_labels(self, outs, threshold=None, method='sigmod',):
+    def get_multi_labels(self, outs, threshold=None, method=None):
         """
         this function should call only when test or validate.
         """
-        if method == 'sigmod':
+        if method is None or method == 'NULL':
+            if threshold is None:
+                threshold = self.sigmod_threshold
+        elif method == 'sigmod':
             outs = torch.sigmoid(outs)
             if threshold is None:
                 threshold = self.sigmod_threshold
@@ -111,11 +114,6 @@ class ClassiModel(object):
             else:
                 threshold = torch.sigmoid(threshold)
         pred_label = torch.zeros_like(outs, device=self.device)
-        # print(pred_label.shape, outs.shape)
-        # print(threshold.shape)
-        # exit()
-        #print(outs>=threshold)
-        #exit()
         pred_label[torch.arange(0, outs.shape[0]), outs.argmax(dim=1)] = 1
         # outs[outs < threshold] = 0
         pred_label[outs >= threshold] = 1
@@ -283,15 +281,24 @@ class ClassiModel(object):
         self.optimizer.step()
         return loss.item()
 
-    def threshold_loss(self, outs, gt):
+    def threshold_loss(self, outs, gt, method=None):
         if self.regress_threshold is False:
             print("regress_threshold should be true, but it is False. please check your config")
             exit()
         outs = outs.detach()
         gt = gt.detach()
-        outs = torch.sigmoid(outs)
-        outs = outs[:, 0:-1]
-        threshold = outs[:, -1].view(-1, 1)
+        if method is None or method == "NULL":
+            threshold = outs[:, -1].view(-1, 1)
+            outs = outs[:, 0:-1]
+        elif method == 'sigmoid':
+            outs = torch.sigmoid(outs)
+            threshold = outs[:, -1].view(-1, 1)
+            outs = outs[:, 0:-1]
+        elif method == 'softmax':
+            threshold = outs[:, -1].view(-1, 1)
+            outs = outs[:, 0:-1]
+            outs = outs.softmax(dim=1)
+            threshold = threshold.sigmoid()
         gt_sum = gt.sum(1).cpu().numpy().astype(np.int)
         topk = []
         for bs_id in range(outs.shape[0]):
@@ -566,8 +573,15 @@ class ClassiModel(object):
                 print("use CrossEntropyLabelSmooth for loss")
                 criterion = CrossEntropyLabelSmooth(self.num_classes, smoothing=0.1)
         else:
-            print("multi labels classify, use BCEWithLogits for loss")
-            criterion = nn.BCEWithLogitsLoss().to(self.device)
+            if criterion_v == 'BCEWithLogitsLoss':
+                print("multi labels classify, use BCEWithLogits for loss")
+                criterion = nn.BCEWithLogitsLoss().to(self.device)
+            elif criterion_v == 'BCELoss':
+                print("multi labels classify, use BCE for loss")
+                criterion = nn.BCELoss().to(self.device)
+            else:
+                print("multi labels classify, use BCE for loss")
+                criterion = nn.BCELoss().to(self.device)
         return criterion
 
     def _save_recored(self, save_dir, train_acc_list, train_score_list, valid_acc_list, valid_score_list):
@@ -576,7 +590,7 @@ class ClassiModel(object):
         max_train_acc, max_train_acc_index = max(train_acc_list), train_acc_list.index(max(train_acc_list))
         max_train_score, max_train_score_index = max(train_score_list), train_score_list.index(max(train_score_list))
         os.makedirs(save_dir, exist_ok=True)
-        with open(os.path.join(save_dir, "record.txt")) as f:
+        with open(os.path.join(save_dir, "record.txt"), 'w') as f:
             f.write("epoch: %d, max_valid_accur: %.6f \n" % (max_valid_acc_index, max_valid_acc))
             f.write("epoch: %d, max_valid_score: %.6f \n" % (max_valid_score_index, max_valid_score))
             f.write("epoch: %d, max_train_accur: %.6f \n" % (max_train_acc_index, max_train_acc))
