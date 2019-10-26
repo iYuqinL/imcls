@@ -273,7 +273,7 @@ class ClassiModel(object):
             # because loss criterion is with logit, don't need to sigmoid the output when training
             # output is [bs, (num_classes+1)]
             loss_threshold = self.threshold_loss(output, labels)
-            output = output[:, :self.num_classes]
+            output = output[:, 0:self.num_classes]
 
         loss = self.criterion(output, labels) + loss_threshold
         self.optimizer.zero_grad()
@@ -281,7 +281,7 @@ class ClassiModel(object):
         self.optimizer.step()
         return loss.item()
 
-    def threshold_loss(self, outs, gt, method=None):
+    def threshold_loss(self, outs, gt, method='sigmoid'):
         if self.regress_threshold is False:
             print("regress_threshold should be true, but it is False. please check your config")
             exit()
@@ -292,22 +292,22 @@ class ClassiModel(object):
             outs = outs[:, 0:-1]
         elif method == 'sigmoid':
             outs = torch.sigmoid(outs)
-            threshold = outs[:, -1].view(-1, 1)
-            outs = outs[:, 0:-1]
+            threshold = outs[:, self.num_classes].view(-1, 1)
+            outs = outs[:, 0:self.num_classes]
         elif method == 'softmax':
-            threshold = outs[:, -1].view(-1, 1)
-            outs = outs[:, 0:-1]
+            threshold = outs[:, self.num_classes].view(-1, 1)
+            outs = outs[:, 0:self.num_classes]
             outs = outs.softmax(dim=1)
             threshold = threshold.sigmoid()
         gt_sum = gt.sum(1).cpu().numpy().astype(np.int)
-        topk = []
+        topk_v = []
         for bs_id in range(outs.shape[0]):
             topk_tmp = (outs[bs_id].topk(int(gt_sum[bs_id])))
-            topk.append(topk_tmp[0][-1].view(1, 1))
-        topk = torch.cat(topk, dim=0).detach()
-        topk = topk - topk * 0.05
+            topk_v.append(topk_tmp[0][-1].view(1, 1))
+        topk_v = torch.cat(topk_v, dim=0).detach()
+        topk_v = topk_v - topk_v * 0.05
         # print(topk.shape, threshold.shape), exit(0)
-        loss = self.threshold_crit(threshold, topk)
+        loss = self.threshold_crit(threshold, topk_v)
         # loss = 0
         return loss
 
@@ -580,8 +580,8 @@ class ClassiModel(object):
                 print("multi labels classify, use BCE for loss")
                 criterion = nn.BCELoss().to(self.device)
             else:
-                print("multi labels classify, use BCE for loss")
-                criterion = nn.BCELoss().to(self.device)
+                print("multi labels classify, use BCEWithLogits for loss")
+                criterion = nn.BCEWithLogitsLoss().to(self.device)
         return criterion
 
     def _save_recored(self, save_dir, train_acc_list, train_score_list, valid_acc_list, valid_score_list):
