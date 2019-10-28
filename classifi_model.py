@@ -31,25 +31,8 @@ from efficientnet_pytorch import EfficientNet
 import resnet_cbam as resnet
 from csv_dataset import CsvDataset
 import network_arch
+import loss_trick
 import time
-
-
-class CrossEntropyLabelSmooth(nn.Module):
-    def __init__(self, classes, smoothing=0.1, dim=-1):
-        super(CrossEntropyLabelSmooth, self).__init__()
-        self.confidence = 1.0 - smoothing
-        self.smoothing = smoothing
-        self.cls = classes
-        self.dim = dim
-
-    def forward(self, pred, target):
-        pred = pred.log_softmax(dim=self.dim)
-        with torch.no_grad():
-            # true_dist = pred.data.clone()
-            true_dist = torch.zeros_like(pred)
-            true_dist.fill_(self.smoothing / (self.cls - 1))
-            true_dist.scatter_(1, target.data.unsqueeze(1), self.confidence)
-        return torch.mean(torch.sum(-true_dist * pred, dim=self.dim))
 
 
 class ClassiModel(object):
@@ -94,14 +77,14 @@ class ClassiModel(object):
         self.softmax_threshold = 0.3
         self.sigmod_threshold = 0.45  # maybe sigmod is more reasonable
 
-    def get_multi_labels(self, outs, threshold=None, method=None):
+    def get_multi_labels(self, outs, threshold=None, method='sigmoid'):
         """
         this function should call only when test or validate.
         """
         if method is None or method == 'NULL':
             if threshold is None:
                 threshold = self.sigmod_threshold
-        elif method == 'sigmod':
+        elif method == 'sigmoid':
             outs = torch.sigmoid(outs)
             if threshold is None:
                 threshold = self.sigmod_threshold
@@ -205,8 +188,8 @@ class ClassiModel(object):
                 pred_label = torch.argmax(out, dim=1)
                 print(i, labels, pred_label, end='\r')
             elif self.regress_threshold:
-                threshold = out[:, -1].view(-1, 1)  # [bs,1]
-                out = out[:, 0:-1]
+                threshold = out[:, self.num_classes].view(-1, 1)  # [bs,1]
+                out = out[:, 0:self.num_classes]
                 pred_label = self.get_multi_labels(out, threshold)
                 print(
                     i, (np.where((labels[0] == 1).cpu())[0]).shape,
@@ -571,7 +554,13 @@ class ClassiModel(object):
                 criterion = nn.CrossEntropyLoss().to(self.device)
             elif criterion_v == "CrossEntropyLabelSmooth":
                 print("use CrossEntropyLabelSmooth for loss")
-                criterion = CrossEntropyLabelSmooth(self.num_classes, smoothing=0.1)
+                criterion = loss_trick.CrossEntropyLabelSmooth(self.num_classes, smoothing=0.1)
+            elif criterion_v == 'FocalLoss':
+                print("Use FocalLoss for loss")
+                criterion = loss_trick.FocalLoss().to(self.device)
+            else:
+                print("use CrossEntropyLoss for loss")
+                criterion = nn.CrossEntropyLoss().to(self.device)
         else:
             if criterion_v == 'BCEWithLogitsLoss':
                 print("multi labels classify, use BCEWithLogits for loss")
