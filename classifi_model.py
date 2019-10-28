@@ -186,7 +186,7 @@ class ClassiModel(object):
             if self.multi_labels is False:
                 labels = labels.argmax(dim=1)
                 pred_label = torch.argmax(out, dim=1)
-                print(i, labels, pred_label, end='\r')
+                print(i, end='\r')
             elif self.regress_threshold:
                 threshold = out[:, self.num_classes].view(-1, 1)  # [bs,1]
                 out = out[:, 0:self.num_classes]
@@ -206,18 +206,18 @@ class ClassiModel(object):
             N += labels.shape[0]
             for i in range(labels.shape[0]):
                 # if multi labels, labels[i] and pred_label is 1x(num_classes) tensor, else, they are a scalar
-                if (labels[i] == pred_label[i]).sum() == labels.shape[1]:
-                    if self.multi_labels:
-                        indices = np.where((labels[i] == 1).cpu())
+                if self.multi_labels:
+                    indices = np.where((labels[i] == 1).cpu())
+                    if (labels[i] == pred_label[i]).sum() == labels.shape[1]:
                         TP[indices] += 1
+                        num_correct += 1
                     else:
-                        TP[labels[i]] += 1
-                    num_correct += 1
-                else:
-                    if self.multi_labels:
-                        indices = np.where((labels[i] == 1).cpu())
                         FN[indices] += 1
                         FP[indices] += 1
+                else:
+                    if labels[i] == pred_label[i]:
+                        TP[labels[i]] += 1
+                        num_correct += 1
                     else:
                         FN[labels[i]] += 1
                         FP[labels[i]] += 1
