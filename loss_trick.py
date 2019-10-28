@@ -41,7 +41,7 @@ class FocalLoss(nn.Module):
             inputs = inputs.transpose(1, 2)    # N,C,H*W => N,H*W,C
             inputs = inputs.contiguous().view(-1, inputs.size(2))   # N,H*W,C => N*H*W,C
         target = target.view(-1, 1)
-        logpt = F.log_softmax(inputs)
+        logpt = F.log_softmax(inputs, dim=1)
         logpt = logpt.gather(1, target)
         logpt = logpt.view(-1)
         pt = Variable(logpt.data.exp())
