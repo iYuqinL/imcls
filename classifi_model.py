@@ -201,7 +201,6 @@ class ClassiModel(object):
                 print(
                     i, (np.where((labels[0] == 1).cpu())[0]).shape,
                     (np.where((pred_label[0] == 1).cpu())[0]).shape,
-                    threshold[0].sigmoid().cpu().item(),
                     end='\r')
             # print(i, labels, pred_label, end='\r')
             N += labels.shape[0]
