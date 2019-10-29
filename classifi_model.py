@@ -41,7 +41,7 @@ class ClassiModel(object):
             self, arch='efficientnet-b7', gpus=[0], optimv='sgd', num_classes=10,
             multi_labels=False, regress_threshold=False, lr=0.1, momentum=0.9, weight_decay=1e-4,
             from_pretrained=False, ifcbam=False, fix_bn_v=False, criterion_v='CrossEntropyLoss',
-            amp_train=False, amp_opt_level='02'):
+            amp_train=False, amp_opt_level='O2'):
         super(ClassiModel, self).__init__()
         cudnn.benchmark = True
         # network architecture options
@@ -77,8 +77,8 @@ class ClassiModel(object):
         else:
             self.optimizer = self._create_optimizer(optimv, lr, momentum, weight_decay)
         if self.amp_train:
-            if (self.amp_opt_level is None) or (self.amp_opt_level not in ['00', '01', '02', '03']):
-                self.amp_opt_level = '01'
+            if (self.amp_opt_level is None) or (self.amp_opt_level not in ['O0', 'O1', 'O2', 'O3']):
+                self.amp_opt_level = 'O1'
             self.net, self.optimizer = amp.initialize(self.net, self.optimizer, opt_level=self.amp_opt_level)
         self.criterion = self._create_criterion(self.multi_labels, self.criterion_v)
         self.softmax_threshold = 0.3
