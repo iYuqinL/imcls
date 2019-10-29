@@ -23,6 +23,7 @@ import torch.nn as nn
 import torch.backends.cudnn as cudnn
 import torchvision
 import torch.optim as optim
+from apex import amp
 import numpy as np
 from efficientnet_pytorch import EfficientNet
 import torchvision.transforms as transforms
@@ -39,11 +40,13 @@ class ClassiModel(object):
     def __init__(
             self, arch='efficientnet-b7', gpus=[0], optimv='sgd', num_classes=10,
             multi_labels=False, regress_threshold=False, lr=0.1, momentum=0.9, weight_decay=1e-4,
-            from_pretrained=False, ifcbam=False, fix_bn_v=False, criterion_v='CrossEntropyLoss'):
+            from_pretrained=False, ifcbam=False, fix_bn_v=False, criterion_v='CrossEntropyLoss',
+            amp_train=False, amp_opt_level='02'):
         super(ClassiModel, self).__init__()
         cudnn.benchmark = True
         # network architecture options
-        self.precision = 'FP32'
+        self.amp_train = amp_train
+        self.amp_opt_level = amp_opt_level
         self.arch = arch
         self.num_classes = num_classes
         self.multi_labels = multi_labels
@@ -73,6 +76,10 @@ class ClassiModel(object):
             # not be updated, no need to create optimizer again after freeze_bn.
         else:
             self.optimizer = self._create_optimizer(optimv, lr, momentum, weight_decay)
+        if self.amp_train:
+            if (self.amp_opt_level is None) or (self.amp_opt_level not in ['00', '01', '02', '03']):
+                self.amp_opt_level = '01'
+            self.net, self.optimizer = amp.initialize(self.net, self.optimizer, opt_level=self.amp_opt_level)
         self.criterion = self._create_criterion(self.multi_labels, self.criterion_v)
         self.softmax_threshold = 0.3
         self.sigmod_threshold = 0.45  # maybe sigmod is more reasonable
@@ -259,7 +266,11 @@ class ClassiModel(object):
 
         loss = self.criterion(output, labels) + loss_threshold
         self.optimizer.zero_grad()
-        loss.backward()
+        if self.amp_train:
+            with amp.scale_loss(loss, self.optimizer) as scale_loss:
+                scale_loss.backward()
+        else:
+            loss.backward()
         self.optimizer.step()
         return loss.item()
 
