@@ -96,7 +96,7 @@ if __name__ == "__main__":
             optimv=opt.optimizer, num_classes=opt.num_classes, multi_labels=opt.multi_labels,
             regress_threshold=opt.regress_threshold, lr=opt.lr_list[0],
             weight_decay=opt.weight_decay, from_pretrained=opt.from_pretrained, ifcbam=opt.ifcbam,
-            fix_bn_v=opt.fix_bn, criterion_v=opt.criterion_v)
+            fix_bn_v=opt.fix_bn, criterion_v=opt.criterion_v, amp_train=opt.amp_train, amp_opt_level=opt.amp_opt_level)
         print("there are %d images in the training set, %d in the validation set" %
               (len(train_dataset), len(valid_dataset)))
         avg_valid_acc, avg_valid_score, _, _ = classi_model.train_fold(train_loader, valid_loader, fold_idx, opt)

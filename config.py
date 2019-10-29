@@ -71,6 +71,8 @@ class Config(object):
         # -------------------------------------------------------------------------
         # train options
         # -------------------------------------------------------------------------
+        config.add_argument('--amp_train', action='store_true', default=False, help='if use apex amp training')
+        config.add_argument('--amp_opt_level', action='store_true', default=False, help='the apex amp optimize level')
         config.add_argument('--epoches', type=int, default=400, help='number of epochs to train for')
         config.add_argument('--epoch_base', type=int, default=1, help='number of epoch to begin')
         config.add_argument('--model_base_dir', type=str, default='./baseline_models/',
