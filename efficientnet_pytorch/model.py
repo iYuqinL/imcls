@@ -223,6 +223,74 @@ class EfficientNet(nn.Module):
         x = self._fc(x)
         return x
 
+    def freeze_blocks(self, num_blocks):
+        if num_blocks < 0:
+            print("num_blocks should not be less than 0, if it is, then freeze no block")
+            return
+        self._conv_stem.eval()
+        self._conv_stem.weight.requires_grad = False
+        self._bn0.eval()
+        self._bn0.weight.requires_grad = False
+        self._bn0.bias.requires_grad = False
+        block_cnt = 0
+        paras_cnt = 0
+        for i in range(min(num_blocks, len(self._blocks))):
+            self._blocks[i].eval()
+            block_cnt += 1
+            for name, p in self._blocks[i].named_parameters():
+                if p.requires_grad is True:
+                    p.requires_grad = False
+                    paras_cnt += 1
+        print("freezed %d blocks with %d paras" % (block_cnt, paras_cnt))
+        return
+
+    def unfreeze_blocks(self, num_blocks):
+        if num_blocks < 0:
+            print("num_blocks should not be less than 0, if it is, then unfreeze no block")
+            return
+        self._conv_stem.train()
+        self._conv_stem.weight.requires_grad = True
+        self._bn0.train()
+        self._bn0.weight.requires_grad = True
+        self._bn0.bias.requires_grad = True
+        block_cnt = 0
+        paras_cnt = 0
+        for i in range(min(num_blocks, len(self._blocks))):
+            self._blocks[i].train()
+            block_cnt += 1
+            for name, p in self._blocks[i].named_parameters():
+                if p.requires_grad is False:
+                    p.requires_grad = True
+                    paras_cnt += 1
+        print("unfreezed %d blocks with %d paras" % (block_cnt, paras_cnt))
+        return
+
+    def freeze_blocks_by_id(self, blocks_ids):
+        block_cnt = 0
+        paras_cnt = 0
+        for idx in blocks_ids:
+            self._blocks[idx].eval()
+            block_cnt += 1
+            for name, p in self._blocks[idx].named_parameters():
+                if p.requires_grad is True:
+                    p.requires_grad = False
+                    paras_cnt += 1
+        print("freezed %d blocks with %d paras" % (block_cnt, paras_cnt))
+        return
+
+    def unfreeze_blocks_by_id(self, blocks_ids):
+        block_cnt = 0
+        paras_cnt = 0
+        for idx in blocks_ids:
+            self._blocks[idx].train()
+            block_cnt += 1
+            for name, p in self._blocks[idx].named_parameters():
+                if p.requires_grad is False:
+                    p.requires_grad = True
+                    paras_cnt += 1
+        print("freezed %d blocks with %d paras" % (block_cnt, paras_cnt))
+        return
+
     @classmethod
     def from_name(cls, model_name, override_params=None, ifcbam=False):
         cls._check_model_name_is_valid(model_name)
