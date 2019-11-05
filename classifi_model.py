@@ -119,6 +119,8 @@ class ClassiModel(object):
 
         if opt.model_url is not None:
             self.loadmodel(opt.model_url, ifload_fc=opt.load_fc)
+        self.freeze_layers(0, 23)
+        layer_freeze_flag = True
         epoch = 0
         train_acc_list, valid_acc_list = [], []
         train_score_list, valid_score_list = [], []
@@ -135,6 +137,9 @@ class ClassiModel(object):
             patience = 0
             while True:
                 st = time.time()
+                if epoch > 3 and layer_freeze_flag:
+                    self.unfreeze_layers(0, 23)
+                    layer_freeze_flag = False
                 # 训练一个完整的epoch
                 for i, data in enumerate(trainloader, start=0):
                     img, gt = data
@@ -442,6 +447,34 @@ class ClassiModel(object):
             self.optimizer.add_param_group({'params': filter(lambda p: p.requires_grad, self.net.parameters())})
         else:
             self.optimizer = self._create_optimizer(self.optimv, self.lr, self.momentum, self.weight_decay)
+        return
+
+    def freeze_layers(self, layer_begin, layer_end):
+        if 'efficientnet' in self.arch:
+            self.net.freeze_blocks(layer_begin, layer_end)
+            # make sure the optimizer will not update the freezed parameters
+            if hasattr(self, 'optimizer') and isinstance(self.optimizer, optim.Optimizer):
+                for i in range(len(self.optimizer.param_groups)):
+                    del self.optimizer.param_groups[0]
+                self.optimizer.add_param_group({'params': filter(lambda p: p.requires_grad, self.net.parameters())})
+            else:
+                self.optimizer = self._create_optimizer(self.optimv, self.lr, self.momentum, self.weight_decay)
+        else:
+            print("the architecture: {} layer freeze is not implemented now".format(self.arch))
+        return
+
+    def unfreeze_layers(self, layer_begin, layer_end):
+        if 'efficientnet' in self.arch:
+            self.net.unfreeze_blocks(layer_begin, layer_end)
+            # make sure the optimizer will update the unfreezed parameters
+            if hasattr(self, 'optimizer') and isinstance(self.optimizer, optim.Optimizer):
+                for i in range(len(self.optimizer.param_groups)):
+                    del self.optimizer.param_groups[0]
+                self.optimizer.add_param_group({'params': filter(lambda p: p.requires_grad, self.net.parameters())})
+            else:
+                self.optimizer = self._create_optimizer(self.optimv, self.lr, self.momentum, self.weight_decay)
+        else:
+            print("the architecture: {} layer unfreeze is not implemented now".format(self.arch))
         return
 
     def _set_learning_rate(self, lr):
