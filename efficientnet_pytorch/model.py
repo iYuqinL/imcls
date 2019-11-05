@@ -223,8 +223,8 @@ class EfficientNet(nn.Module):
         x = self._fc(x)
         return x
 
-    def freeze_blocks(self, num_blocks):
-        if num_blocks < 0:
+    def freeze_blocks(self, block_begin=0, block_end=0):
+        if block_begin < 0 or block_end < 0:
             print("num_blocks should not be less than 0, if it is, then freeze no block")
             return
         self._conv_stem.eval()
@@ -234,7 +234,7 @@ class EfficientNet(nn.Module):
         self._bn0.bias.requires_grad = False
         block_cnt = 0
         paras_cnt = 0
-        for i in range(min(num_blocks, len(self._blocks))):
+        for i in range(block_begin, min(block_end, len(self._blocks))):
             self._blocks[i].eval()
             block_cnt += 1
             for name, p in self._blocks[i].named_parameters():
@@ -244,24 +244,25 @@ class EfficientNet(nn.Module):
         print("freezed %d blocks with %d paras" % (block_cnt, paras_cnt))
         return
 
-    def unfreeze_blocks(self, num_blocks):
-        if num_blocks < 0:
+    def unfreeze_blocks(self, block_begin=0, block_end=0):
+        if block_end < 0 or block_begin < 0:
             print("num_blocks should not be less than 0, if it is, then unfreeze no block")
             return
-        self._conv_stem.train()
-        self._conv_stem.weight.requires_grad = True
-        self._bn0.train()
-        self._bn0.weight.requires_grad = True
-        self._bn0.bias.requires_grad = True
         block_cnt = 0
         paras_cnt = 0
-        for i in range(min(num_blocks, len(self._blocks))):
+        for i in range(min(block_end, len(self._blocks))-1, block_begin-1, -1):
             self._blocks[i].train()
             block_cnt += 1
             for name, p in self._blocks[i].named_parameters():
                 if p.requires_grad is False:
                     p.requires_grad = True
                     paras_cnt += 1
+        if i == 0:
+            self._conv_stem.train()
+            self._conv_stem.weight.requires_grad = True
+            self._bn0.train()
+            self._bn0.weight.requires_grad = True
+            self._bn0.bias.requires_grad = True
         print("unfreezed %d blocks with %d paras" % (block_cnt, paras_cnt))
         return
 
