@@ -1,0 +1,33 @@
+_BASE_: "../cls_base.yaml"
+NETWORK:
+  META_ARCH: "GeneralClsModel"
+  NUM_CLASSES: 4
+  BACKBONE_ARCH: "resnest101"
+  BNNECK: False
+  FC_DROPOUT: 0.0
+  LABEL_SMOOTHING: 0.1
+  PRETRAINED: True
+SOLVER:
+  MAX_ITER: 32000
+  CHECKPOINT_PERIOD: 2000
+  LR_SCHEDULER_NAME: "WarmupCosineLR"
+  BASE_LR: 0.0044444
+  MOMENTUM: 0.9
+  WEIGHT_DECAY: 0.0001
+  WARMUP_FACTOR: 0.001
+  WARMUP_ITERS: 1000
+  WARMUP_METHOD: "linear"
+DATA:
+  TRAIN_SIZE: [224, 224]
+  VALID_SIZE: [256, 256]
+  VALID_SIZE: [256, 256]
+  BATCHSIZE: 32
+  NUM_WORKERS: 8
+  MIXUP: 0.2
+  DATASETS:
+    TRAIN_DIR: "DataSet/S2/mergeS1/balance/train"
+    VALID_DIR: "DataSet/S2/mergeS1/balance/valid"
+    TEST_DIR: "DataSet/S2/testA"
+    ROOT_DIR: "DataSet/S2/mergeS1/balance/train_balance"
+
+OUTPUT_DIR: "train-outs/S2/resnest101-01/"
